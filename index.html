@@ -2,29 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Org Chart - Win/Loss</title>
+  <title>Org Chart</title>
   <style>
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: system-ui, sans-serif;
       background: #f4f6f8;
     }
     .chart-container {
       width: 100vw;
       height: 100vh;
     }
-    .loading {
+    #status {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 18px;
-      color: #555;
+      top: 20px;
+      left: 20px;
+      background: white;
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      z-index: 100;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <div class="loading">Loading data...</div>
+  <div id="status">Loading data.csv ...</div>
   <div class="chart-container"></div>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -32,64 +35,64 @@
   <script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
 
   <script>
-    // Load your CSV
-    d3.csv("data.csv").then(raw => {
-      document.querySelector('.loading').style.display = 'none';
+    const statusEl = document.getElementById('status');
 
-      // Transform to the format d3-org-chart expects
-      const data = raw.map(d => ({
-        id: d.userId,
-        parentId: d.pid || null,          // empty pid becomes root
-        display_name: d.display_name,
-        WinLoss: d.WinLoss
-      }));
+    d3.csv("data.csv")
+      .then(raw => {
+        statusEl.textContent = `Loaded ${raw.length} rows. Building chart...`;
 
-      // Create the chart
-      const chart = new d3.OrgChart()
-        .container('.chart-container')
-        .data(data)
-        .nodeWidth(d => 220)
-        .nodeHeight(d => 90)
-        .childrenMargin(d => 40)
-        .compactMarginBetween(d => 20)
-        .compactMarginPair(d => 30)
-        .nodeContent(function (d) {
-          const winLoss = d.data.WinLoss || '';
-          const isLoss = winLoss.includes('虧損') || winLoss.startsWith('-');
-          const color = isLoss ? '#c0392b' : '#27ae60';
+        const data = raw.map(d => ({
+          id: d.userId,
+          parentId: d.pid || null,
+          display_name: d.display_name,
+          WinLoss: d.WinLoss
+        }));
 
-          return `
-            <div style="
-              width: 200px;
-              height: 74px;
-              padding: 10px 12px;
-              background: white;
-              border: 1px solid #ddd;
-              border-radius: 8px;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-            ">
-              <div style="font-weight: 600; font-size: 13px; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                ${d.data.display_name || d.data.id}
+        const chart = new d3.OrgChart()
+          .container('.chart-container')
+          .data(data)
+          .nodeWidth(() => 220)
+          .nodeHeight(() => 90)
+          .childrenMargin(() => 40)
+          .compactMarginBetween(() => 20)
+          .compactMarginPair(() => 30)
+          .nodeContent(function (d) {
+            const winLoss = d.data.WinLoss || '';
+            const isLoss = winLoss.includes('虧損') || winLoss.trim().startsWith('-');
+            const color = isLoss ? '#c0392b' : '#27ae60';
+
+            return `
+              <div style="
+                width:200px; height:74px; padding:10px 12px;
+                background:white; border:1px solid #ddd;
+                border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.08);
+                display:flex; flex-direction:column; justify-content:center;
+              ">
+                <div style="font-weight:600; font-size:13px; color:#222;
+                            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${d.data.display_name || d.data.id}
+                </div>
+                <div style="font-size:13px; margin-top:4px; color:${color}; font-weight:500;">
+                  ${winLoss}
+                </div>
               </div>
-              <div style="font-size: 13px; margin-top: 4px; color: ${color}; font-weight: 500;">
-                ${winLoss}
-              </div>
-            </div>
-          `;
-        })
-        .render();
+            `;
+          })
+          .render();
 
-      // Optional: fit the chart to screen after rendering
-      setTimeout(() => chart.fit(), 300);
-
-    }).catch(err => {
-      document.querySelector('.loading').textContent = 
-        'Error loading data.csv. Make sure the file is in the same folder.';
-      console.error(err);
-    });
+        setTimeout(() => {
+          chart.fit();
+          statusEl.style.display = 'none';
+        }, 400);
+      })
+      .catch(err => {
+        statusEl.innerHTML = `
+          <strong style="color:#c0392b">Error loading data.csv</strong><br>
+          ${err.message}<br><br>
+          <small>Make sure data.csv is in the same folder as index.html</small>
+        `;
+        console.error(err);
+      });
   </script>
 </body>
 </html>
