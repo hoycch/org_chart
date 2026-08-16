@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organization Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3b82f6;
+      --accent2: #60a5fa;
+      --line: #334155;
+      --node-bg: #1e293b;
+      --node-border: #475569;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--card);
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      background: var(--node-bg);
+      color: var(--text);
+      border: 1px solid var(--node-border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: #334155;
+      border-color: var(--accent);
+    }
+
+    #chart {
+      width: 100vw;
+      height: calc(100vh - 52px);
+      cursor: grab;
+    }
+    #chart:active { cursor: grabbing; }
+
+    .link {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 1.5px;
+    }
+
+    .node circle {
+      stroke-width: 2px;
+      cursor: pointer;
+      transition: r 0.15s, stroke-width 0.15s;
+    }
+    .node circle:hover {
+      stroke-width: 3px;
+    }
+
+    .node text {
+      font-size: 12px;
+      fill: var(--text);
+      pointer-events: none;
+    }
+
+    .node .id-label {
+      font-size: 10px;
+      fill: var(--muted);
+    }
+
+    .tooltip {
+      position: absolute;
+      background: var(--card);
+      border: 1px solid var(--node-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      max-width: 240px;
+    }
+    .tooltip strong { color: var(--accent2); }
+    .tooltip .muted { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    .legend {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--muted);
+      z-index: 10;
+    }
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-right: 14px;
+    }
+    .legend i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Organization Chart</h1>
+    <div class="controls">
+      <button id="btn-expand">Expand All</button>
+      <button id="btn-collapse">Collapse All</button>
+      <button id="btn-reset">Reset View</button>
+    </div>
+  </header>
+
+  <div id="chart"></div>
+  <div class="tooltip" id="tooltip"></div>
+  <div class="legend">
+    <span><i style="background:#f59e0b"></i> Root</span>
+    <span><i style="background:#3b82f6"></i> Manager</span>
+    <span><i style="background:#10b981"></i> Leaf</span>
+    <span style="margin-left:8px">Drag to pan · Scroll to zoom · Click node to expand/collapse</span>
+  </div>
+
+  <script>
+    // ========== Embedded hierarchy data (all data on this page) ==========
+    const treeData = {
+      "name": "???",
+      "id": "28795450",
+      "children": [
+        {
+          "name": "???",
+          "id": "85486468",
+          "children": [
+            {
+              "name": "劉志文",
+              "id": "70925799",
+              "children": [
+                { "name": "Cindy", "id": "83560217" }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "???",
+          "id": "28982234",
+          "children": [
+            {
+              "name": "劉文斌",
+              "id": "60732117",
+              "children": [
+                { "name": "唐X華", "id": "33177048" }
+              ]
+            },
+            {
+              "name": "楊世建",
+              "id": "98853629",
+              "children": [
+                { "name": "程X理", "id": "86695465" }
+              ]
+            },
+            {
+              "name": "陳志華",
+              "id": "34641536",
+              "children": [
+                { "name": "貞貞", "id": "90126524" }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "???",
+          "id": "69030025",
+          "children": [
+            {
+              "name": "?劉成傑?",
+              "id": "86553782",
+              "children": [
+                { "name": "李X蓉", "id": "81877145" }
+              ]
+            },
+            {
+              "name": "劉成傑",
+              "id": "94596850",
+              "children": [
+                { "name": "契媽", "id": "61329473" }
+              ]
+            },
+            {
+              "name": "張志剛",
+              "id": "91201239",
+              "children": [
+                { "name": "巫X花", "id": "82440546" }
+              ]
+            },
+            {
+              "name": "李強",
+              "id": "31295483",
+              "children": [
+                { "name": "妹姐", "id": "91396311" }
+              ]
+            },
+            {
+              "name": "蘇柒之",
+              "id": "16488571",
+              "children": [
+                { "name": "Sita", "id": "28487693" }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    // ========== Chart setup (VERTICAL top-down) ==========
+    const container = document.getElementById("chart");
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    const svg = d3.select("#chart")
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    const zoomG = svg.append("g");
+
+    svg.call(
+      d3.zoom()
+        .scaleExtent([0.15, 3])
+        .on("zoom", (event) => {
+          zoomG.attr("transform", event.transform);
+        })
+    );
+
+    const g = zoomG.append("g");
+    const tooltip = d3.select("#tooltip");
+
+    const root = d3.hierarchy(treeData);
+    root.x0 = 0;
+    root.y0 = 0;
+
+    // Collapse deeper levels initially (keep first 2 levels open)
+    if (root.children) {
+      root.children.forEach(function collapseDeep(d) {
+        if (d.children) {
+          d.children.forEach(c => {
+            if (c.children) {
+              c._children = c.children;
+              c.children = null;
+              if (c._children) c._children.forEach(collapseDeep);
+            }
+          });
+        }
+      });
+    }
+
+    // Vertical: [horizontal spacing between siblings, vertical spacing between levels]
+    const treeLayout = d3.tree().nodeSize([110, 100]);
+
+    let i = 0;
+
+    function update(source) {
+      const duration = 400;
+      const treeRoot = treeLayout(root);
+      const nodes = treeRoot.descendants();
+      const links = treeRoot.links();
+
+      // Vertical layout: depth increases downward
+      nodes.forEach(d => { d.y = d.depth * 110; });
+
+      // ----- Nodes -----
+      const node = g.selectAll("g.node")
+        .data(nodes, d => d.id || (d.id = ++i));
+
+      const nodeEnter = node.enter().append("g")
+        .attr("class", "node")
+        .attr("transform", d => `translate(${source.x0},${source.y0})`)
+        .on("click", (event, d) => {
+          event.stopPropagation();
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+          } else {
+            d.children = d._children;
+            d._children = null;
+          }
+          update(d);
+        })
+        .on("mouseover", (event, d) => {
+          tooltip
+            .style("opacity", 1)
+            .html(`<strong>${d.data.name}</strong><div class="muted">ID: ${d.data.id}</div>`)
+            .style("left", (event.pageX + 12) + "px")
+            .style("top", (event.pageY - 10) + "px");
+        })
+        .on("mousemove", (event) => {
+          tooltip
+            .style("left", (event.pageX + 12) + "px")
+            .style("top", (event.pageY - 10) + "px");
+        })
+        .on("mouseout", () => tooltip.style("opacity", 0));
+
+      nodeEnter.append("circle")
+        .attr("r", 1e-6)
+        .style("fill", "#3b82f6")
+        .style("stroke", "#475569");
+
+      nodeEnter.append("text")
+        .attr("dy", "1.6em")
+        .attr("text-anchor", "middle")
+        .text(d => {
+          const n = d.data.name || "";
+          return n.length > 10 ? n.slice(0, 9) + "…" : n;
+        })
+        .clone(true).lower()
+        .attr("stroke", "var(--bg)")
+        .attr("stroke-width", 3);
+
+      nodeEnter.append("text")
+        .attr("class", "id-label")
+        .attr("dy", "2.8em")
+        .attr("text-anchor", "middle")
+        .text(d => d.data.id)
+        .clone(true).lower()
+        .attr("stroke", "var(--bg)")
+        .attr("stroke-width", 3);
+
+      const nodeUpdate = nodeEnter.merge(node);
+
+      nodeUpdate.transition().duration(duration)
+        .attr("transform", d => `translate(${d.x},${d.y})`);
+
+      nodeUpdate.select("circle")
+        .attr("r", 9)
+        .style("fill", d => {
+          if (d.depth === 0) return "#f59e0b";
+          if (d._children || d.children) return "#3b82f6";
+          return "#10b981";
+        })
+        .style("stroke", d =>
+          d._children || d.children ? "#60a5fa" : "#34d399"
+        );
+
+      const nodeExit = node.exit().transition().duration(duration)
+        .attr("transform", d => `translate(${source.x},${source.y})`)
+        .remove();
+
+      nodeExit.select("circle").attr("r", 1e-6);
+      nodeExit.selectAll("text").style("fill-opacity", 1e-6);
+
+      // ----- Links -----
+      const link = g.selectAll("path.link")
+        .data(links, d => d.target.id);
+
+      const linkEnter = link.enter().insert("path", "g")
+        .attr("class", "link")
+        .attr("d", d => {
+          const o = { x: source.x0, y: source.y0 };
+          return diagonal(o, o);
+        });
+
+      linkEnter.merge(link).transition().duration(duration)
+        .attr("d", d => diagonal(d.source, d.target));
+
+      link.exit().transition().duration(duration)
+        .attr("d", d => {
+          const o = { x: source.x, y: source.y };
+          return diagonal(o, o);
+        })
+        .remove();
+
+      nodes.forEach(d => {
+        d.x0 = d.x;
+        d.y0 = d.y;
+      });
+    }
+
+    // Vertical curved links (parent above → child below)
+    function diagonal(s, d) {
+      return `M ${s.x} ${s.y}
+              C ${s.x} ${(s.y + d.y) / 2},
+                ${d.x} ${(s.y + d.y) / 2},
+                ${d.x} ${d.y}`;
+    }
+
+    update(root);
+
+    const initialTransform = d3.zoomIdentity
+      .translate(width / 2, 50)
+      .scale(0.85);
+
+    svg.call(d3.zoom().transform, initialTransform);
+    zoomG.attr("transform", initialTransform);
+
+    document.getElementById("btn-expand").addEventListener("click", () => {
+      root.each(d => {
+        if (d._children) {
+          d.children = d._children;
+          d._children = null;
+        }
+      });
+      update(root);
+    });
+
+    document.getElementById("btn-collapse").addEventListener("click", () => {
+      if (root.children) {
+        root.children.forEach(function collapse(d) {
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+            d._children.forEach(collapse);
+          }
+        });
+      }
+      update(root);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      svg.transition().duration(500)
+        .call(d3.zoom().transform, initialTransform);
+    });
+  </script>
+</body>
+</html>
