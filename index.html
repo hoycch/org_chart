@@ -1,600 +1,518 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-HK">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Ledger Tree · Account Hierarchy</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#0a0e14;
-    --bg-grid:#0d131b;
-    --panel:#111823;
-    --panel-2:#151f2c;
-    --line:#223140;
-    --line-soft:#1a2530;
-    --text:#e7ecf2;
-    --text-dim:#8aa0b4;
-    --text-faint:#516375;
-    --teal:#4fd8c4;
-    --teal-dim:#2c5f57;
-    --gold:#e8b75e;
-    --gold-dim:#4a3d20;
-    --red:#e5636b;
-    --red-dim:#4a2226;
-    --gray:#55677a;
-  }
-  *{box-sizing:border-box;}
-  html,body{
-    margin:0; padding:0; height:100%;
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Inter',system-ui,sans-serif;
-    overflow:hidden;
-    -webkit-tap-highlight-color: transparent;
-  }
-  body{
-    background-image:
-      radial-gradient(circle at 15% 8%, rgba(79,216,196,0.05), transparent 40%),
-      radial-gradient(circle at 85% 92%, rgba(232,183,94,0.04), transparent 45%);
-  }
-
-  #app{ position:fixed; inset:0; display:flex; flex-direction:column; }
-
-  /* Header */
-  header{
-    flex:0 0 auto;
-    padding:14px 16px 12px;
-    background:linear-gradient(180deg, var(--panel), rgba(17,24,35,0.85));
-    border-bottom:1px solid var(--line);
-    position:relative; z-index:20;
-  }
-  .titlebar{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
-  .titlebar h1{
-    font-family:'Space Grotesk', sans-serif;
-    font-size:18px; font-weight:600; letter-spacing:0.2px; margin:0;
-    display:flex; align-items:center; gap:8px;
-  }
-  .titlebar h1 .dot{
-    width:8px; height:8px; border-radius:50%;
-    background:var(--teal);
-    box-shadow:0 0 8px 1px rgba(79,216,196,0.7);
-  }
-  .stat-line{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px; color:var(--text-faint);
-    margin-top:2px;
-  }
-  .stat-line b{ color:var(--text-dim); font-weight:500; }
-
-  .toolbar{
-    margin-top:10px;
-    display:flex; gap:8px; align-items:center;
-  }
-  .search-wrap{
-    position:relative; flex:1; min-width:0;
-  }
-  .search-wrap input{
-    width:100%;
-    background:var(--panel-2);
-    border:1px solid var(--line);
-    color:var(--text);
-    font-family:'IBM Plex Mono', monospace;
-    font-size:13px;
-    padding:9px 34px 9px 12px;
-    border-radius:8px;
-    outline:none;
-  }
-  .search-wrap input:focus{ border-color:var(--teal); }
-  .search-wrap input::placeholder{ color:var(--text-faint); }
-  .search-clear{
-    position:absolute; right:6px; top:50%; transform:translateY(-50%);
-    width:22px; height:22px; border-radius:6px; border:none;
-    background:transparent; color:var(--text-faint);
-    display:none; align-items:center; justify-content:center;
-    cursor:pointer; font-size:14px;
-  }
-  .search-wrap.has-val .search-clear{ display:flex; }
-
-  .icon-btn{
-    flex:0 0 auto;
-    width:36px; height:36px; border-radius:8px;
-    background:var(--panel-2); border:1px solid var(--line);
-    color:var(--text-dim);
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size:15px;
-    font-family:'IBM Plex Mono', monospace;
-  }
-  .icon-btn:active{ background:var(--teal-dim); color:var(--teal); border-color:var(--teal-dim); }
-
-  #search-results{
-    position:absolute; left:16px; right:16px; top:100%;
-    margin-top:6px;
-    background:var(--panel-2);
-    border:1px solid var(--line);
-    border-radius:8px;
-    max-height:260px; overflow-y:auto;
-    display:none;
-    z-index:30;
-    box-shadow:0 12px 24px rgba(0,0,0,0.4);
-  }
-  #search-results.show{ display:block; }
-  .sr-item{
-    padding:9px 12px; border-bottom:1px solid var(--line-soft);
-    cursor:pointer; display:flex; justify-content:space-between; gap:10px;
-    font-size:12.5px;
-  }
-  .sr-item:last-child{ border-bottom:none; }
-  .sr-item:active{ background:var(--teal-dim); }
-  .sr-name{ color:var(--text); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sr-id{ color:var(--text-faint); font-family:'IBM Plex Mono', monospace; font-size:11px; flex:0 0 auto; }
-  .sr-empty{ padding:14px 12px; color:var(--text-faint); font-size:12.5px; }
-
-  /* Legend */
-  .legend{
-    display:flex; gap:12px; flex-wrap:wrap;
-    margin-top:10px; font-size:10.5px; color:var(--text-dim);
-    font-family:'IBM Plex Mono', monospace;
-  }
-  .legend span{ display:inline-flex; align-items:center; gap:5px; }
-  .legend i{ width:8px; height:8px; border-radius:2px; display:inline-block; }
-
-  /* Canvas */
-  #canvas-wrap{ position:relative; flex:1 1 auto; overflow:hidden; touch-action:none; }
-  svg{ width:100%; height:100%; display:block; cursor:grab; }
-  svg:active{ cursor:grabbing; }
-
-  .link{ fill:none; stroke:var(--line); stroke-width:1.4; }
-  .link.on-path{ stroke:var(--teal); stroke-width:1.8; }
-
-  .node{ cursor:pointer; }
-  .node .card{
-    fill:var(--panel-2);
-    stroke:var(--line);
-    stroke-width:1;
-  }
-  .node.root .card{ fill:var(--panel); stroke:var(--teal-dim); stroke-width:1.4; }
-  .node.highlight .card{ stroke:var(--teal); stroke-width:1.6; }
-  .node:active .card{ fill:var(--line-soft); }
-
-  .node .name{
-    font-family:'Inter', sans-serif; font-size:11.5px; font-weight:500;
-    fill:var(--text);
-  }
-  .node .idtext{
-    font-family:'IBM Plex Mono', monospace; font-size:9px;
-    fill:var(--text-faint);
-  }
-  .node .chip-text{
-    font-family:'IBM Plex Mono', monospace; font-size:9.5px; font-weight:600;
-  }
-  .node .badge-text{
-    font-family:'IBM Plex Mono', monospace; font-size:8.5px; font-weight:600;
-    fill:var(--bg);
-  }
-  .node .toggle-ring{ fill:none; stroke:var(--line); stroke-width:1.2; }
-  .node .toggle-plus{ stroke:var(--text-dim); stroke-width:1.4; }
-  .node.root .toggle-ring{ stroke:var(--teal-dim); }
-
-  /* Zoom controls */
-  .zoom-controls{
-    position:absolute; right:14px; bottom:18px; z-index:15;
-    display:flex; flex-direction:column; gap:8px;
-  }
-  .zoom-controls button{
-    width:38px; height:38px; border-radius:10px;
-    background:rgba(17,24,35,0.9); border:1px solid var(--line);
-    color:var(--text-dim); font-size:17px;
-    backdrop-filter: blur(4px);
-  }
-  .zoom-controls button:active{ background:var(--teal-dim); color:var(--teal); }
-
-  .hint{
-    position:absolute; left:14px; bottom:18px; z-index:15;
-    font-family:'IBM Plex Mono', monospace; font-size:10px;
-    color:var(--text-faint);
-    background:rgba(17,24,35,0.75);
-    padding:6px 9px; border-radius:6px;
-    border:1px solid var(--line-soft);
-    pointer-events:none;
-    transition:opacity 0.6s ease;
-  }
-
-  @media (prefers-reduced-motion: reduce){
-    * { transition:none !important; animation:none !important; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>團隊組織架構圖</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419; --panel: #1a2332; --border: #2d3a4f;
+      --text: #e7ecf3; --muted: #8b9bb4;
+      --accent: #3b82f6; --accent-hover: #2563eb;
+      --positive: #22c55e; --negative: #ef4444;
+      --link: #475569; --highlight: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "PingFang HK", "Noto Sans TC", "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg); color: var(--text);
+      height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    header {
+      background: var(--panel); border-bottom: 1px solid var(--border);
+      padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap; z-index: 10;
+    }
+    h1 { font-size: 1.15rem; font-weight: 600; white-space: nowrap; }
+    .controls { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
+    .search-box {
+      display: flex; align-items: center; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; min-width: 180px; flex: 1; max-width: 300px;
+    }
+    .search-box input {
+      background: transparent; border: none; outline: none;
+      color: var(--text); font-size: 0.9rem; width: 100%; font-family: inherit;
+    }
+    .search-box input::placeholder { color: var(--muted); }
+    button {
+      background: var(--accent); color: white; border: none; border-radius: 8px;
+      padding: 7px 12px; font-size: 0.85rem; cursor: pointer;
+      font-family: inherit; white-space: nowrap; transition: background 0.15s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: transparent; border: 1px solid var(--border); color: var(--text);
+    }
+    button.secondary:hover { background: var(--border); }
+    #chart { flex: 1; position: relative; overflow: hidden; }
+    svg { width: 100%; height: 100%; cursor: grab; }
+    svg:active { cursor: grabbing; }
+    .node circle { stroke-width: 2px; cursor: pointer; transition: stroke-width 0.15s; }
+    .node circle:hover { stroke-width: 3px; }
+    .node text {
+      font-size: 11px; fill: var(--text); pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+    }
+    .node text.name { font-weight: 500; }
+    .node text.meta { font-size: 9px; fill: var(--muted); }
+    .link { fill: none; stroke: var(--link); stroke-width: 1.25px; stroke-opacity: 0.55; }
+    .link.highlight { stroke: var(--highlight); stroke-width: 2.5px; stroke-opacity: 1; }
+    .node.highlight circle { stroke: var(--highlight) !important; stroke-width: 3px; }
+    .node.search-target circle {
+      stroke: #f59e0b !important; stroke-width: 4px;
+      filter: drop-shadow(0 0 6px #f59e0b);
+    }
+    .tooltip {
+      position: absolute; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; pointer-events: none; opacity: 0;
+      transition: opacity 0.12s; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      max-width: 280px; font-size: 0.85rem;
+    }
+    .tooltip.visible { opacity: 1; }
+    .tooltip .title { font-weight: 600; margin-bottom: 6px; font-size: 0.95rem; }
+    .tooltip .row { display: flex; justify-content: space-between; gap: 14px; margin: 3px 0; }
+    .tooltip .label { color: var(--muted); }
+    .tooltip .pos { color: var(--positive); font-weight: 600; }
+    .tooltip .neg { color: var(--negative); font-weight: 600; }
+    .legend {
+      position: absolute; bottom: 12px; left: 12px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
+      font-size: 0.75rem; z-index: 5; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+    .stats { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
+    .search-result {
+      position: absolute; top: 12px; right: 12px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;
+      font-size: 0.8rem; z-index: 5; max-width: 280px; display: none;
+    }
+    .search-result.visible { display: block; }
+  </style>
 </head>
 <body>
-<div id="app">
   <header>
-    <div class="titlebar">
-      <h1><span class="dot"></span>Ledger Tree</h1>
-    </div>
-    <div class="stat-line"><b id="stat-total">0</b> accounts · <b id="stat-roots">0</b> root branches · deepest chain <b id="stat-depth">0</b> levels</div>
-    <div class="toolbar">
-      <div class="search-wrap" id="search-wrap">
-        <input id="search" type="text" inputmode="search" placeholder="Search by ID or name…" autocomplete="off">
-        <button class="search-clear" id="search-clear">✕</button>
-        <div id="search-results"></div>
+    <h1>團隊組織架構圖</h1>
+    <div class="controls">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜尋用戶 ID..." autocomplete="off">
       </div>
-      <button class="icon-btn" id="btn-collapse" title="Collapse to overview">⤒</button>
-      <button class="icon-btn" id="btn-expand" title="Expand all">⤓</button>
-    </div>
-    <div class="legend">
-      <span><i style="background:var(--gold)"></i>positive balance</span>
-      <span><i style="background:var(--red)"></i>虧損 / loss</span>
-      <span><i style="background:var(--gray)"></i>0.00 / flat</span>
-      <span><i style="background:var(--teal)"></i>selected path</span>
+      <button id="btnSearch">搜尋</button>
+      <button class="secondary" id="btnExpand">全部展開</button>
+      <button class="secondary" id="btnCollapse">全部收合</button>
+      <button class="secondary" id="btnReset">重設視圖</button>
+      <span class="stats" id="stats"></span>
     </div>
   </header>
-
-  <div id="canvas-wrap">
-    <svg id="tree-svg"></svg>
-    <div class="zoom-controls">
-      <button id="zoom-in">+</button>
-      <button id="zoom-out">−</button>
-      <button id="zoom-reset" style="font-size:12px;">⤾</button>
+  <div id="chart">
+    <div class="tooltip" id="tooltip"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#22c55e;border-color:#16a34a"></div> 盈餘</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;border-color:#dc2626"></div> 虧損</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#64748b;border-color:#475569"></div> 零／無資料</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#1e293b;border-color:#fbbf24"></div> 搜尋路徑</div>
     </div>
-    <div class="hint" id="hint">Tap a node to expand · pinch or drag to navigate</div>
+    <div class="search-result" id="searchResult"></div>
   </div>
-</div>
+  <script>
+    const TREE_DATA = {"id":0,"name":"組織架構根","winloss":-1511488,"children":[{"id":34490727,"name":"'- Elaine","winloss":-66742,"children":[{"id":65990313,"name":"'- Linda","winloss":-8840},{"id":52865919,"name":"'- soki","winloss":-29113,"children":[{"id":74906512,"name":"*6660737","winloss":0},{"id":91660299,"name":"62206*33","winloss":0},{"id":94064050,"name":"63*21618","winloss":0},{"id":43724508,"name":"666*9069","winloss":0},{"id":25270041,"name":"66882***","winloss":-5773}]},{"id":74072700,"name":"*2290**6","winloss":-12175,"children":[{"id":39555584,"name":"*2*66553","winloss":280},{"id":62963855,"name":"6**80857","winloss":176},{"id":75547352,"name":"628*039*","winloss":-409,"children":[{"id":63170084,"name":"*20*0821","winloss":158}]},{"id":85587151,"name":"6520*04*","winloss":171}]},{"id":30508052,"name":"*38*939*","winloss":1153},{"id":57490572,"name":"*5*1*825","winloss":1558},{"id":17301091,"name":"*5601638","winloss":0},{"id":37686567,"name":"*57285**","winloss":1211},{"id":53905987,"name":"*85**002","winloss":3303,"children":[{"id":65761547,"name":"6*56*0*1","winloss":2790}]},{"id":67040301,"name":"1**61883*26","winloss":-11737,"children":[{"id":64708605,"name":"13*103138**","winloss":1483}]},{"id":90823784,"name":"1*5230*0745","winloss":-265},{"id":27872633,"name":"13*6*3*9542","winloss":-13523,"children":[{"id":54333103,"name":"13*2339*847","winloss":335},{"id":16450267,"name":"1341234*945","winloss":0},{"id":92899501,"name":"13527071*33","winloss":0},{"id":88259850,"name":"135358873*1","winloss":0},{"id":22953595,"name":"13602*62033","winloss":0},{"id":42770559,"name":"13923355*19","winloss":0},{"id":24437510,"name":"18933*03087","winloss":0},{"id":49826076,"name":"6*3183*1","winloss":193},{"id":69845501,"name":"661*8336","winloss":35}]},{"id":22991458,"name":"180221*9490","winloss":0},{"id":61304123,"name":"54*63955","winloss":0},{"id":35603163,"name":"6*06**88","winloss":1583},{"id":21579821,"name":"6*15*32*","winloss":-6908,"children":[{"id":64668928,"name":"*6451198","winloss":0},{"id":87073674,"name":"13*027773*3","winloss":589},{"id":48816345,"name":"138*2684*3*","winloss":-14983},{"id":14254836,"name":"189*3332350","winloss":0}]},{"id":90488319,"name":"6*659**1","winloss":-20142,"children":[{"id":47416555,"name":"**58*794","winloss":-13456},{"id":87381011,"name":"*3**8807","winloss":-5900,"children":[{"id":21442119,"name":"6*644083","winloss":0}]},{"id":68007778,"name":"*695*9*8","winloss":-6245},{"id":60594364,"name":"~花","winloss":2363,"children":[{"id":66454174,"name":"62183*39","winloss":0},{"id":46269013,"name":"6302*795","winloss":0},{"id":54835638,"name":"652*5573","winloss":45}]},{"id":85173126,"name":"6*155874","winloss":0},{"id":98229517,"name":"636*1683","winloss":0},{"id":69720892,"name":"6376*127","winloss":0},{"id":22012374,"name":"656591*8","winloss":0},{"id":13832422,"name":"6583372*","winloss":0},{"id":53084170,"name":"659*0397","winloss":0},{"id":35825496,"name":"6639**33","winloss":171},{"id":77125889,"name":"665084*2","winloss":0}]},{"id":77027543,"name":"6*873*92","winloss":744,"children":[{"id":86166026,"name":"*3821963","winloss":0}]},{"id":34331604,"name":"62***264","winloss":1124},{"id":88844586,"name":"62**358*","winloss":-12265,"children":[{"id":32123412,"name":"**207822","winloss":867,"children":[{"id":43044887,"name":"*6692776","winloss":0}]},{"id":78243309,"name":"*2*41626","winloss":-360},{"id":63650489,"name":"*6989316","winloss":0},{"id":14497936,"name":"*85*6366","winloss":125},{"id":85824577,"name":"6*202897","winloss":0},{"id":67792150,"name":"621188**","winloss":133},{"id":53011799,"name":"6319***6","winloss":-7831,"children":[{"id":84699892,"name":"5*024409","winloss":0},{"id":31253633,"name":"6*818629","winloss":95},{"id":61400863,"name":"6207*769","winloss":0},{"id":25199161,"name":"621405*6","winloss":0},{"id":35395183,"name":"66886*92","winloss":0}]},{"id":84291411,"name":"635*7719","winloss":0},{"id":20822133,"name":"6376538*","winloss":0},{"id":93829250,"name":"6389133*","winloss":0},{"id":27924961,"name":"65293*86","winloss":90,"children":[{"id":83936830,"name":"668*0731","winloss":0}]},{"id":11035528,"name":"66*2058*","winloss":560},{"id":18358683,"name":"66*9516*","winloss":-360},{"id":97705271,"name":"66166*33","winloss":0},{"id":75453046,"name":"66508*73","winloss":0},{"id":94456538,"name":"666*8*7*","winloss":-4060},{"id":25033774,"name":"6677*858","winloss":0},{"id":46740781,"name":"68870*60","winloss":0}]},{"id":19676247,"name":"621*6998","winloss":0},{"id":17226849,"name":"628*2743","winloss":0},{"id":87414635,"name":"6355*2*4","winloss":768,"children":[{"id":65398811,"name":"622*6601","winloss":0},{"id":18259042,"name":"66228*8*","winloss":728},{"id":46464287,"name":"684*8813","winloss":0}]},{"id":82155674,"name":"647*0680","winloss":0},{"id":15644757,"name":"65***706","winloss":2798},{"id":54617604,"name":"6571458*","winloss":0},{"id":85545146,"name":"66*0022*","winloss":503},{"id":43543672,"name":"66*27892","winloss":0},{"id":96188465,"name":"66*51568","winloss":0},{"id":25392012,"name":"66*7787*","winloss":215},{"id":29028475,"name":"6659768*","winloss":33,"children":[{"id":59436659,"name":"691675*9","winloss":0}]},{"id":86210104,"name":"666**10*","winloss":-6972},{"id":62600712,"name":"668*1*19","winloss":691},{"id":82043117,"name":"66830*32","winloss":0},{"id":62897192,"name":"669718*8","winloss":84},{"id":37546748,"name":"93638*14","winloss":0,"children":[{"id":40629226,"name":"6*766073","winloss":0}]},{"id":59760340,"name":"938*1*83","winloss":148}]},{"id":83560217,"name":"Cindy","winloss":-279490,"children":[{"id":65110132,"name":"**1*9793","winloss":1987},{"id":82696956,"name":"*3*218*2","winloss":3778},{"id":86161722,"name":"*3003788","winloss":0},{"id":49077883,"name":"*30766**","winloss":2802},{"id":77588588,"name":"*35202**","winloss":1982},{"id":67072178,"name":"*376655*","winloss":932},{"id":58794589,"name":"*5230095","winloss":93},{"id":12803126,"name":"*6*0871*","winloss":2202,"children":[{"id":30750327,"name":"*6*0713*","winloss":2703},{"id":18800505,"name":"*6134325","winloss":50},{"id":33585363,"name":"*65**974","winloss":4247,"children":[{"id":63525446,"name":"620292*8","winloss":0},{"id":91683986,"name":"623*5853","winloss":0,"children":[{"id":24426713,"name":"6*683402","winloss":0}]},{"id":12412744,"name":"635*7622","winloss":0},{"id":20794331,"name":"650868*0","winloss":0}]},{"id":33798550,"name":"6*23863*","winloss":315},{"id":82462532,"name":"6*38*965","winloss":649},{"id":20397441,"name":"6*39*272","winloss":385,"children":[{"id":82966286,"name":"6217*736","winloss":0},{"id":23965119,"name":"63*90*46","winloss":300,"children":[{"id":91663209,"name":"6**19482","winloss":340},{"id":67811571,"name":"6*612537","winloss":0},{"id":61534287,"name":"63*8*673","winloss":300}]}]},{"id":84171350,"name":"6*691931","winloss":28},{"id":59192702,"name":"62*1*810","winloss":355},{"id":16216310,"name":"6359370*","winloss":0},{"id":30536973,"name":"655*2387","winloss":28},{"id":38020999,"name":"66370*53","winloss":0},{"id":34371488,"name":"666*70*3","winloss":330},{"id":40609608,"name":"66626**5","winloss":315},{"id":98597985,"name":"6665*909","winloss":30}]},{"id":98732331,"name":"*6*56*68","winloss":1726,"children":[{"id":87971208,"name":"63**866*","winloss":1992}]},{"id":95648510,"name":"*61*28*6","winloss":1207},{"id":22486434,"name":"*620*42*","winloss":2303},{"id":15163558,"name":"*67*2*23","winloss":-27841},{"id":74533746,"name":"*6701**9","winloss":1987,"children":[{"id":84571081,"name":"*5603053","winloss":0},{"id":59168692,"name":"1816560305*","winloss":0}]},{"id":90582074,"name":"*6722663","winloss":0},{"id":50950860,"name":"*683180*","winloss":348},{"id":88557624,"name":"*6869415","winloss":34},{"id":56748715,"name":"*8266**6","winloss":11753},{"id":76988948,"name":"*8282795","winloss":70},{"id":29213524,"name":"*8809811","winloss":0},{"id":58951487,"name":"~ Nr","winloss":1619},{"id":57938821,"name":"~L A M","winloss":-18180,"children":[{"id":60173338,"name":"**389292","winloss":144},{"id":19846694,"name":"*396596*","winloss":153},{"id":34080693,"name":"*529*5*3","winloss":-2886},{"id":32171648,"name":"*6240*7*","winloss":1314},{"id":82029798,"name":"*7578647","winloss":24},{"id":53740052,"name":"1*400660372","winloss":0},{"id":70366954,"name":"52**8585","winloss":144},{"id":36107639,"name":"5200*906","winloss":18},{"id":45160442,"name":"549*1911","winloss":0},{"id":44150971,"name":"550**2*0","winloss":-17273},{"id":72757861,"name":"554153*8","winloss":0},{"id":76885647,"name":"6*86*223","winloss":144},{"id":90871671,"name":"62*82463","winloss":0},{"id":61733905,"name":"6302*614","winloss":0},{"id":37623919,"name":"66*33788","winloss":18},{"id":56343674,"name":"66733*66","winloss":18},{"id":91087760,"name":"6808*184","winloss":0},{"id":45205779,"name":"8*223671","winloss":0},{"id":58390024,"name":"84***526","winloss":-3026},{"id":53914068,"name":"84*2405*","winloss":143},{"id":99624053,"name":"9*068997","winloss":0},{"id":49458272,"name":"92320*65","winloss":0},{"id":76639098,"name":"9558607*","winloss":0},{"id":74378568,"name":"'-琪琪","winloss":0}]},{"id":64063325,"name":"134258808*6","winloss":0},{"id":52734293,"name":"13531*56094","winloss":0},{"id":36866614,"name":"135399*5865","winloss":0},{"id":70931320,"name":"13612596*34","winloss":0},{"id":96694543,"name":"139**8348*6","winloss":3063},{"id":80022296,"name":"1392326*630","winloss":0},{"id":84465088,"name":"15975723*26","winloss":0},{"id":73411835,"name":"1781723400*","winloss":0},{"id":50611046,"name":"180888**18*","winloss":1899},{"id":25757240,"name":"18929973*77","winloss":0},{"id":72938097,"name":"6***2955","winloss":2302},{"id":70594504,"name":"6**2*614","winloss":-53647,"children":[{"id":98642039,"name":"'- Debbie","winloss":-2952,"children":[{"id":68542706,"name":"62811*32","winloss":0}]},{"id":26731723,"name":"6626924*","winloss":0}]},{"id":43726690,"name":"6*2*166*","winloss":11714},{"id":62479797,"name":"6*2*29*5","winloss":2303},{"id":31514228,"name":"6*248877","winloss":0},{"id":24084352,"name":"6*4**725","winloss":2786,"children":[{"id":34669000,"name":"*8887594","winloss":30}]},{"id":43572640,"name":"6*503006","winloss":0},{"id":96952122,"name":"6*510166","winloss":0},{"id":99932488,"name":"6*556*2*","winloss":-47947},{"id":77021873,"name":"6*556329","winloss":53},{"id":63777504,"name":"6*5791**","winloss":3477,"children":[{"id":32325458,"name":"*328**57","winloss":-7344},{"id":18585394,"name":"*5803658","winloss":29},{"id":14465916,"name":"1*392588503","winloss":25},{"id":44072230,"name":"6*015755","winloss":29},{"id":35914243,"name":"6*712792","winloss":0},{"id":73813201,"name":"628222*6","winloss":52},{"id":22150789,"name":"63*05503","winloss":43},{"id":21022106,"name":"655*6787","winloss":28},{"id":31263144,"name":"662300*1","winloss":79,"children":[{"id":15583609,"name":"*2914347","winloss":49},{"id":28506739,"name":"6*649549","winloss":52}]},{"id":38487427,"name":"6637*310","winloss":0},{"id":47543799,"name":"68*83622","winloss":33,"children":[{"id":13609079,"name":"661326*3","winloss":0},{"id":33028347,"name":"668256*7","winloss":28}]}]},{"id":20238233,"name":"6*6*4*10","winloss":2972},{"id":27628606,"name":"6*699325","winloss":0},{"id":61330732,"name":"6*768*97","winloss":722,"children":[{"id":83153256,"name":"*8878233","winloss":0},{"id":96023343,"name":"65597*83","winloss":0},{"id":42010263,"name":"657020*8","winloss":0}]},{"id":50822116,"name":"6*83151*","winloss":683},{"id":82289498,"name":"6*9*58*5","winloss":1390},{"id":21894250,"name":"62*96471","winloss":0},{"id":63278046,"name":"6209*866","winloss":33},{"id":96165551,"name":"623*1985","winloss":85},{"id":63282032,"name":"6241*036","winloss":0,"children":[{"id":35150756,"name":"*0677754","winloss":0}]},{"id":44904940,"name":"63*6*688","winloss":214},{"id":80063142,"name":"6316*199","winloss":0},{"id":14539196,"name":"6339180*","winloss":33},{"id":26027695,"name":"652089*2","winloss":34},{"id":96239129,"name":"656*3660","winloss":90},{"id":23958990,"name":"6561*759","winloss":36},{"id":34807996,"name":"66**1*46","winloss":3265},{"id":40173840,"name":"66*30009","winloss":0},{"id":20259618,"name":"66*63**9","winloss":-4784,"children":[{"id":44222604,"name":"6*889783","winloss":0},{"id":48596475,"name":"6827*197","winloss":0}]},{"id":26350562,"name":"66*643*2","winloss":668},{"id":28787585,"name":"66*73796","winloss":50},{"id":12764539,"name":"66*89250","winloss":0},{"id":67556401,"name":"663**86*","winloss":3130},{"id":29692639,"name":"663*3668","winloss":48},{"id":50819325,"name":"6633**87","winloss":328},{"id":74635836,"name":"6639*665","winloss":0},{"id":69333504,"name":"66397**3","winloss":701},{"id":45046994,"name":"665525*7","winloss":55},{"id":46995052,"name":"666**573","winloss":360},{"id":70118047,"name":"666*7032","winloss":0},{"id":84445091,"name":"6663***4","winloss":3366},{"id":67160214,"name":"66816*37","winloss":29,"children":[{"id":62630435,"name":"6558288*","winloss":0}]},{"id":34763982,"name":"67678*86","winloss":0},{"id":18410692,"name":"68*15116","winloss":0},{"id":57458666,"name":"68251***","winloss":2732,"children":[{"id":10781219,"name":"1354430*868","winloss":0}]},{"id":65224914,"name":"6825227*","winloss":0},{"id":74077125,"name":"6881887*","winloss":0},{"id":63908309,"name":"83261881*1","winloss":0},{"id":10990558,"name":"83296227*7","winloss":0},{"id":71045020,"name":"93*73622","winloss":0},{"id":44566390,"name":"'-Million(案)","winloss":20242,"children":[{"id":68060763,"name":"*6684659","winloss":0},{"id":57733403,"name":"6359*831","winloss":0,"children":[{"id":72607322,"name":"*3516837","winloss":0},{"id":90848768,"name":"6*580598","winloss":0},{"id":22556085,"name":"62115*74","winloss":0},{"id":76641183,"name":"629977*0","winloss":0},{"id":15276471,"name":"63*34098","winloss":0},{"id":91166527,"name":"632*1810","winloss":0},{"id":64673256,"name":"65*05865","winloss":0},{"id":74403606,"name":"6565319*","winloss":0},{"id":55896605,"name":"66*36655","winloss":0},{"id":62005653,"name":"66856*96","winloss":0}]},{"id":58175836,"name":"6689120*","winloss":0},{"id":69622551,"name":"90*57883","winloss":0}]}]},{"id":28487693,"name":"Sita","winloss":-202456,"children":[{"id":59608390,"name":"'- Albert Lam","winloss":-17832},{"id":62734462,"name":"'- Lai Wai Fan","winloss":625,"children":[{"id":82758046,"name":"*645368*","winloss":-972}]},{"id":10672628,"name":"*1299129","winloss":0},{"id":95035017,"name":"*3*9*330","winloss":1954,"children":[{"id":55788385,"name":"*4632727","winloss":0},{"id":65739095,"name":"6**38682","winloss":149,"children":[{"id":69992369,"name":"909*3818","winloss":0},{"id":87098179,"name":"928686*4","winloss":0}]},{"id":61731105,"name":"625441*3","winloss":0,"children":[{"id":35055838,"name":"*4134113","winloss":0},{"id":10850851,"name":"9706566*","winloss":0}]},{"id":68859434,"name":"67**7262","winloss":319}]},{"id":86259941,"name":"*3175159","winloss":0},{"id":18556200,"name":"*38*8634","winloss":339,"children":[{"id":94390563,"name":"6303463*","winloss":0},{"id":10665133,"name":"677*8029","winloss":0,"children":[{"id":66190793,"name":"51660*53","winloss":0},{"id":23977810,"name":"962160*7","winloss":0}]}]},{"id":70585237,"name":"*8077**7","winloss":-8562},{"id":12968551,"name":"*86887**821","winloss":-7622,"children":[{"id":69632617,"name":"**128759*20","winloss":-67116},{"id":87432497,"name":"**4639*3","winloss":-13075},{"id":11187394,"name":"13*81688008","winloss":0},{"id":15252431,"name":"9**9465*","winloss":-27026},{"id":12319562,"name":"97*93268","winloss":30}]},{"id":66890804,"name":"*8919738","winloss":0},{"id":56764525,"name":"5*132633","winloss":0},{"id":17430935,"name":"5*34914*","winloss":544,"children":[{"id":46777470,"name":"*49051*9","winloss":144},{"id":81284541,"name":"*7426888","winloss":36},{"id":34354482,"name":"510*0*33","winloss":105},{"id":54681613,"name":"68494*08","winloss":0},{"id":38625213,"name":"9**27*48","winloss":-9950},{"id":29587639,"name":"9*317956","winloss":0},{"id":57979538,"name":"93270*24","winloss":0},{"id":96918236,"name":"'-Kitty Shu","winloss":-3332,"children":[{"id":37136280,"name":"*67**518","winloss":-1920},{"id":44504777,"name":"63660*76","winloss":0},{"id":81354393,"name":"9**974*2","winloss":-4200},{"id":56571766,"name":"966*0837","winloss":0}]}]},{"id":73996029,"name":"5*606614","winloss":0},{"id":45646875,"name":"511475*8","winloss":0},{"id":46330695,"name":"511745*7","winloss":0,"children":[{"id":65516409,"name":"*1973413","winloss":0},{"id":62653066,"name":"*4523209","winloss":0},{"id":48367414,"name":"46893*92","winloss":0},{"id":11205037,"name":"516984*4","winloss":0},{"id":22952454,"name":"517*8254","winloss":0},{"id":22947244,"name":"5305*786","winloss":0},{"id":58592739,"name":"5990568*","winloss":0},{"id":84398486,"name":"6*041708","winloss":0},{"id":34002212,"name":"6*908496","winloss":0},{"id":74795092,"name":"60*58962","winloss":0},{"id":92864855,"name":"61430*94","winloss":0},{"id":47939479,"name":"636522*3","winloss":0},{"id":13807041,"name":"644405*9","winloss":0},{"id":97345417,"name":"651*7728","winloss":0},{"id":35093129,"name":"6596*254","winloss":0},{"id":22061087,"name":"66*76239","winloss":0},{"id":11489054,"name":"671735*5","winloss":0},{"id":77328028,"name":"673127*7","winloss":0},{"id":69270884,"name":"68*56033","winloss":0},{"id":89592807,"name":"9*508759","winloss":0},{"id":99102161,"name":"907894*0","winloss":0},{"id":50947035,"name":"91*36061","winloss":0},{"id":78704344,"name":"9143*117","winloss":0},{"id":72603757,"name":"9226*768","winloss":0},{"id":34052228,"name":"9390353*","winloss":0}]},{"id":55857526,"name":"513*5406","winloss":0},{"id":92406917,"name":"52602*62","winloss":0},{"id":62575741,"name":"528*7886","winloss":0,"children":[{"id":55224491,"name":"67*20308","winloss":0}]},{"id":59890183,"name":"54419*90","winloss":70},{"id":51160276,"name":"551*99*7","winloss":-936},{"id":11462452,"name":"56*56804","winloss":0},{"id":71252401,"name":"6*968698","winloss":79},{"id":75749263,"name":"601419*9","winloss":0,"children":[{"id":75194028,"name":"*7291968","winloss":0}]},{"id":33224885,"name":"613*5327","winloss":0},{"id":45559297,"name":"6153594*","winloss":0},{"id":96335982,"name":"621378*1","winloss":0},{"id":97038246,"name":"622*8518","winloss":0},{"id":35514420,"name":"628*0598","winloss":0},{"id":50861133,"name":"63384*92","winloss":0},{"id":38500014,"name":"64*3*243","winloss":154},{"id":13976533,"name":"6493*388","winloss":23},{"id":11566899,"name":"6757*973","winloss":0},{"id":29246881,"name":"67782*08","winloss":0},{"id":28264457,"name":"69*68308","winloss":0,"children":[{"id":80380864,"name":"64*04343","winloss":0},{"id":32147941,"name":"6488*963","winloss":0}]},{"id":51117879,"name":"9**6*787","winloss":-7908},{"id":40209808,"name":"9*052836","winloss":0},{"id":40238745,"name":"9*173381","winloss":95,"children":[{"id":21608378,"name":"543653*3","winloss":0},{"id":22405531,"name":"562576*7","winloss":0},{"id":86192092,"name":"6819*843","winloss":0},{"id":55682989,"name":"937019*5","winloss":0}]},{"id":55022954,"name":"9*460021","winloss":16,"children":[{"id":60986742,"name":"*4222629","winloss":0},{"id":34966057,"name":"65*89088","winloss":16},{"id":54375219,"name":"9*897143","winloss":0},{"id":40748498,"name":"9239*645","winloss":0},{"id":70860299,"name":"9349*866","winloss":0}]},{"id":55658978,"name":"9*95*70*","winloss":2067,"children":[{"id":44318419,"name":"*1*3*441","winloss":1811,"children":[{"id":93334492,"name":"**87874*","winloss":1355}]},{"id":58219438,"name":"*101234*","winloss":430,"children":[{"id":56172895,"name":"60*30034","winloss":0}]},{"id":30743550,"name":"979**116","winloss":320}]},{"id":79996573,"name":"9018*907","winloss":0},{"id":87553330,"name":"9061908*","winloss":0},{"id":43313527,"name":"91539*31","winloss":0},{"id":80504217,"name":"92*6305*","winloss":334,"children":[{"id":80680479,"name":"5*0352*2","winloss":320,"children":[{"id":69468147,"name":"5*0*5907","winloss":325}]}]},{"id":70537147,"name":"927*8*6*","winloss":-55411},{"id":50390196,"name":"93*83766","winloss":0},{"id":17642519,"name":"9377*654","winloss":0},{"id":86358899,"name":"94*33255","winloss":0},{"id":63250808,"name":"947*1261","winloss":0},{"id":45538611,"name":"961*3715","winloss":0,"children":[{"id":40140329,"name":"hkjimmylam@yahoo.com","winloss":0},{"id":42160417,"name":"Rockisthis@yahoo.com.hk","winloss":0}]},{"id":18363421,"name":"9791482*","winloss":53},{"id":15098693,"name":"983*2498","winloss":0},{"id":28148382,"name":"Amina","winloss":6535,"children":[{"id":49451332,"name":"*4286928","winloss":11},{"id":66045754,"name":"*5745568","winloss":0},{"id":45479765,"name":"*6630422","winloss":21},{"id":38979520,"name":"1*688729441","winloss":0},{"id":16055642,"name":"4*311393","winloss":0},{"id":21669483,"name":"5*394913","winloss":16},{"id":18941126,"name":"5108*404","winloss":0},{"id":40660281,"name":"5114*353","winloss":21},{"id":67354296,"name":"517*3939","winloss":21},{"id":94786626,"name":"539319*0","winloss":29,"children":[{"id":86800659,"name":"974860*8","winloss":39}]},{"id":39316844,"name":"5541*730","winloss":0},{"id":87257077,"name":"560276*6","winloss":0},{"id":63192797,"name":"570212*8","winloss":0},{"id":89122935,"name":"59*95462","winloss":0},{"id":88500329,"name":"6*345526","winloss":16},{"id":55057733,"name":"6*544650","winloss":0},{"id":78993697,"name":"6316049*","winloss":0},{"id":59398175,"name":"6337838*","winloss":16},{"id":10846558,"name":"64*64255","winloss":0},{"id":45661451,"name":"6549*324","winloss":0},{"id":85383623,"name":"656*4814","winloss":0},{"id":98849855,"name":"672668*4","winloss":0},{"id":39147969,"name":"677*5600","winloss":0},{"id":87891757,"name":"6772*609","winloss":0},{"id":97852905,"name":"688*394*","winloss":360},{"id":39664846,"name":"68988*62","winloss":0},{"id":61105498,"name":"9*731713","winloss":0},{"id":29935550,"name":"914*4113","winloss":0},{"id":84994430,"name":"914441*4","winloss":0},{"id":98728528,"name":"92919*94","winloss":0},{"id":28866271,"name":"9372093*","winloss":0,"children":[{"id":90106861,"name":"67347*65","winloss":0}]},{"id":57335895,"name":"96*92247","winloss":0,"children":[{"id":20489954,"name":"94419*93","winloss":0}]},{"id":88722543,"name":"96527*04","winloss":0},{"id":15361284,"name":"9695602*","winloss":0},{"id":31827748,"name":"Ellen","winloss":7672,"children":[{"id":83029228,"name":"'- 鐯寶香","winloss":-129475,"children":[{"id":33719070,"name":"*30150**","winloss":-4200},{"id":24452113,"name":"62210*31","winloss":0},{"id":80434164,"name":"637065*1","winloss":0},{"id":33939572,"name":"684**698","winloss":666},{"id":85801746,"name":"9041383*","winloss":38},{"id":23053815,"name":"9046*803","winloss":0},{"id":26735398,"name":"912*0319","winloss":0},{"id":84129468,"name":"927*1639","winloss":0},{"id":87938770,"name":"960**37*","winloss":-4023,"children":[{"id":74151428,"name":"*7938829","winloss":0},{"id":93966366,"name":"5488622*","winloss":0}]},{"id":61965746,"name":"9826*82*","winloss":-778}]},{"id":96597437,"name":"*5013808","winloss":26},{"id":40246282,"name":"*8278576","winloss":21,"children":[{"id":34594135,"name":"923645*9","winloss":0}]},{"id":10565810,"name":"~ - lukwaichin","winloss":3208,"children":[{"id":55651176,"name":"*27**513","winloss":-1060},{"id":48845970,"name":"*70*016*","winloss":1333},{"id":17762517,"name":"5136611*","winloss":0},{"id":15030650,"name":"63346*27","winloss":0,"children":[{"id":55994732,"name":"53*63598","winloss":0}]},{"id":95718504,"name":"65*44428","winloss":0},{"id":23262436,"name":"699258*1","winloss":0},{"id":20424374,"name":"95712*42","winloss":27}]},{"id":16864039,"name":"1851*173910","winloss":0},{"id":84082487,"name":"46*18707","winloss":0},{"id":83464322,"name":"5*0**693","winloss":-20701},{"id":63343611,"name":"51*09268","winloss":0},{"id":64399690,"name":"6*89*82*","winloss":-2679},{"id":52880516,"name":"61066*94","winloss":19},{"id":29546665,"name":"622138*7","winloss":13},{"id":42676454,"name":"6683028*","winloss":0},{"id":13090153,"name":"91*1498*","winloss":775},{"id":30064459,"name":"9167*0**","winloss":-3238,"children":[{"id":73505751,"name":"591413*9","winloss":25,"children":[{"id":43681174,"name":"920*6059","winloss":0}]},{"id":57566180,"name":"63620*62","winloss":28,"children":[{"id":50225566,"name":"6*768897","winloss":23}]},{"id":92129145,"name":"90*31743","winloss":30},{"id":23436157,"name":"987173*5","winloss":25}]},{"id":90722499,"name":"923*9941","winloss":0},{"id":12949097,"name":"938884*3","winloss":0},{"id":29488529,"name":"94*31*04","winloss":-430},{"id":76115669,"name":"9400469*","winloss":0},{"id":19744582,"name":"9712*1**","winloss":-2021},{"id":67477383,"name":"9783609*","winloss":0},{"id":30766076,"name":"'-佩頤 Connie Sin","winloss":-28633}]},{"id":26575924,"name":"珍珠","winloss":-201463,"children":[{"id":90205676,"name":"**321522","winloss":139},{"id":15113927,"name":"*1**0055","winloss":-7044},{"id":22092103,"name":"*3344286","winloss":86},{"id":53295137,"name":"*35155**","winloss":2559},{"id":86499460,"name":"*4968887","winloss":0},{"id":44245518,"name":"1330285343*","winloss":0},{"id":73887459,"name":"13380*49311","winloss":0},{"id":87865595,"name":"5*03*991","winloss":-329},{"id":30187533,"name":"5*218146","winloss":0},{"id":99164802,"name":"529319*7","winloss":0},{"id":60812405,"name":"6*73**07","winloss":1758},{"id":89757809,"name":"6121*329","winloss":17},{"id":58146921,"name":"630108*3","winloss":0},{"id":13539114,"name":"64880*47","winloss":30,"children":[{"id":39637193,"name":"66428*59","winloss":0},{"id":43230878,"name":"943133*0","winloss":0}]},{"id":37290072,"name":"66*11458","winloss":0},{"id":67732781,"name":"691876*3","winloss":0},{"id":40069963,"name":"8*937684","winloss":0},{"id":11629457,"name":"8435***2","winloss":-4953},{"id":39651977,"name":"9*5**687","winloss":-2787,"children":[{"id":68664617,"name":"*74**299","winloss":2206,"children":[{"id":96590182,"name":"93*6*072","winloss":184}]},{"id":23473031,"name":"6*966976","winloss":0}]},{"id":57104689,"name":"9314*43*","winloss":-800},{"id":34301942,"name":"94*2**55","winloss":-5667,"children":[{"id":21999300,"name":"**23366*","winloss":2581},{"id":40423270,"name":"*2*30213","winloss":714},{"id":74674149,"name":"*53*68*7","winloss":-12987},{"id":51159166,"name":"*544*74*","winloss":-6111},{"id":50814879,"name":"*66*23*2","winloss":-1070},{"id":75412347,"name":"5*613*27","winloss":225},{"id":38767777,"name":"51**1*28","winloss":-2177},{"id":77364868,"name":"51*76665","winloss":28},{"id":49249096,"name":"6*44*5*8","winloss":-6625},{"id":54949504,"name":"6*914*46","winloss":168},{"id":24378210,"name":"6136314*","winloss":50},{"id":49091065,"name":"9*33*1*6","winloss":-10137},{"id":73098713,"name":"94*07893","winloss":28},{"id":81266413,"name":"9428*234","winloss":39},{"id":80676214,"name":"9558*7*7","winloss":341}]},{"id":53894390,"name":"940145*1","winloss":91},{"id":93500457,"name":"9466320*","winloss":0},{"id":72177401,"name":"97391*0*","winloss":-696},{"id":46710328,"name":"97444*7*","winloss":768,"children":[{"id":21818593,"name":"5615010*","winloss":0},{"id":19987776,"name":"6*020633","winloss":0},{"id":20562749,"name":"62*14773","winloss":0},{"id":79627939,"name":"6631018*","winloss":0}]},{"id":63502080,"name":"977*4137","winloss":0},{"id":15485545,"name":"9829993*","winloss":0},{"id":75862948,"name":"萬強林","winloss":9596,"children":[{"id":60239986,"name":"**081928","winloss":309},{"id":55368436,"name":"**808799","winloss":700},{"id":22456841,"name":"*11*9973","winloss":309},{"id":20900784,"name":"*94*3989","winloss":334},{"id":49271803,"name":"1312*467685","winloss":0},{"id":27064856,"name":"1382423*881","winloss":0,"children":[{"id":11629842,"name":"1342*917383","winloss":0,"children":[{"id":12295565,"name":"139*7353994","winloss":0},{"id":72654886,"name":"139283226*6","winloss":0,"children":[{"id":93548611,"name":"1392363*266","winloss":0}]}]}]},{"id":49214287,"name":"4754716*","winloss":0},{"id":56114666,"name":"5*373884","winloss":-55,"children":[{"id":15859713,"name":"934*4949","winloss":0},{"id":52858498,"name":"93444*12","winloss":0}]},{"id":56900938,"name":"511***92","winloss":2078,"children":[{"id":27479481,"name":"9*55805*","winloss":106,"children":[{"id":21939085,"name":"*8596558","winloss":0},{"id":73757253,"name":"5*98937*","winloss":-636},{"id":54313381,"name":"903518*5","winloss":0},{"id":99004317,"name":"966348*7","winloss":0}]}]},{"id":62807462,"name":"539225*7","winloss":0},{"id":99743282,"name":"549*8183","winloss":0},{"id":26607611,"name":"55969*58","winloss":0},{"id":12902900,"name":"568*3350","winloss":0},{"id":75248844,"name":"6*7209*0","winloss":581},{"id":90007323,"name":"6*939**1","winloss":17300,"children":[{"id":22534216,"name":"537368*0","winloss":0},{"id":73851358,"name":"54**6243","winloss":151},{"id":58046290,"name":"54*29*8*","winloss":2063,"children":[{"id":92453289,"name":"130088140*6","winloss":0,"children":[{"id":57194282,"name":"6*688305","winloss":0}]}]},{"id":78459800,"name":"60*34588","winloss":45},{"id":55316720,"name":"61085*36","winloss":0},{"id":35418763,"name":"636*6250","winloss":0},{"id":64391785,"name":"67*6*80*","winloss":1022,"children":[{"id":13337580,"name":"islilywong@icloud.com","winloss":0}]},{"id":98135758,"name":"922*1345","winloss":55},{"id":98591254,"name":"9225*378","winloss":0},{"id":75293300,"name":"951798*5","winloss":0},{"id":40475708,"name":"9856*373","winloss":0}]},{"id":85711291,"name":"62*07488","winloss":0},{"id":75632718,"name":"661129*8","winloss":0},{"id":48500598,"name":"667*0626","winloss":0},{"id":10733869,"name":"67249*68","winloss":0},{"id":32702620,"name":"931*06*9","winloss":309},{"id":24683190,"name":"9311*737","winloss":0},{"id":32154147,"name":"974003*4","winloss":0},{"id":37598384,"name":"yehoshuaj7*7@gmail.com","winloss":0},{"id":64007080,"name":"桃姐","winloss":15799,"children":[{"id":66232492,"name":"'- Fong","winloss":15256,"children":[{"id":49423861,"name":"***19409","winloss":2214},{"id":97578650,"name":"**341197","winloss":227},{"id":72685674,"name":"*0*3*409","winloss":-2100},{"id":23708785,"name":"*055*310","winloss":758},{"id":73702845,"name":"*3029490","winloss":0},{"id":11440697,"name":"*339*507","winloss":811},{"id":70951070,"name":"52827*39","winloss":73},{"id":56795593,"name":"5282713*","winloss":0},{"id":27692026,"name":"531612*3","winloss":0},{"id":87446926,"name":"9*32*7*0","winloss":1941},{"id":36795062,"name":"965***22","winloss":-23355},{"id":88577617,"name":"987*59*0","winloss":-430}]},{"id":60334397,"name":"**869795","winloss":401},{"id":55835193,"name":"*0178**9","winloss":1456},{"id":91581955,"name":"*446*526","winloss":412},{"id":33830560,"name":"*735123*","winloss":589,"children":[{"id":61447933,"name":"*1*39475","winloss":379},{"id":51363793,"name":"*5818*74","winloss":125},{"id":57520469,"name":"6185*30*","winloss":341},{"id":45198877,"name":"9*61454*","winloss":594,"children":[{"id":11113256,"name":"*3419537","winloss":0}]}]},{"id":44947863,"name":"*888*16*","winloss":-337650,"children":[{"id":80134356,"name":"9062*883","winloss":0},{"id":32736707,"name":"9340039*","winloss":0},{"id":18895900,"name":"'-金梅","winloss":-4888}]},{"id":90506672,"name":"~ Mey","winloss":-31015,"children":[{"id":66806025,"name":"'- Wai","winloss":48},{"id":32965647,"name":"~woonbing1***","winloss":-2182},{"id":99142603,"name":"65*27273","winloss":28}]},{"id":97036083,"name":"5392629*","winloss":0},{"id":69501828,"name":"6*839467","winloss":0},{"id":98777074,"name":"65741*16","winloss":0},{"id":43200268,"name":"6748157*","winloss":0},{"id":56511110,"name":"6760667*","winloss":0},{"id":42844082,"name":"9*088582","winloss":0},{"id":41233018,"name":"9*2495*6","winloss":529},{"id":81579893,"name":"9*361109","winloss":0},{"id":90774867,"name":"9*413987","winloss":0},{"id":74449278,"name":"9*628922","winloss":0},{"id":34674162,"name":"90*838*8","winloss":419,"children":[{"id":63106948,"name":"*159*192","winloss":398}]},{"id":79005448,"name":"9043***1","winloss":-12984},{"id":67896612,"name":"91314*87","winloss":0},{"id":22385664,"name":"93*4*48*","winloss":1344},{"id":73915093,"name":"93121*5*","winloss":-407},{"id":68313026,"name":"9313*289","winloss":0},{"id":73718606,"name":"94*84468","winloss":0},{"id":30406606,"name":"941*6636","winloss":17},{"id":76763883,"name":"9453103*","winloss":39},{"id":81786984,"name":"951*1946","winloss":22},{"id":84650953,"name":"96*9*602","winloss":543},{"id":69194209,"name":"9762*911","winloss":17}]}]}]}]},{"id":74313123,"name":"Candy","winloss":-14725,"children":[{"id":57991003,"name":"*45*12*1","winloss":2484},{"id":53045063,"name":"*4531231","winloss":0},{"id":78327703,"name":"53351*76","winloss":0},{"id":84110576,"name":"64*93637","winloss":0},{"id":20436439,"name":"69*9250*","winloss":941},{"id":71269752,"name":"9*85*18*","winloss":-1962},{"id":88358107,"name":"96*18648","winloss":18}]},{"id":83976142,"name":"Mui Lok","winloss":4255,"children":[{"id":77282382,"name":"*3199*93","winloss":-430},{"id":60012506,"name":"*4549210","winloss":0},{"id":34043616,"name":"59*058**","winloss":8671},{"id":13797881,"name":"691*0806","winloss":0},{"id":82197581,"name":"9378*055","winloss":31,"children":[{"id":47730912,"name":"6082*070","winloss":0}]}]},{"id":49973949,"name":"Sandy","winloss":-57619,"children":[{"id":78551081,"name":"'- Yan","winloss":-7645,"children":[{"id":33195057,"name":"*4250202","winloss":0}]},{"id":27875585,"name":"***20131","winloss":1771},{"id":66911537,"name":"***96882","winloss":1500,"children":[{"id":14657234,"name":"6333*715","winloss":36}]},{"id":71909051,"name":"**020893","winloss":325,"children":[{"id":58980451,"name":"930*2083","winloss":0}]},{"id":52505465,"name":"*08*4723","winloss":680},{"id":18636282,"name":"*0818310","winloss":0},{"id":89905450,"name":"*2272006","winloss":19},{"id":32044928,"name":"*28*900*","winloss":-2386},{"id":16148912,"name":"*3484196","winloss":0},{"id":29628526,"name":"*4046908","winloss":0},{"id":61598601,"name":"*8522931","winloss":0},{"id":98673404,"name":"*8743680","winloss":0},{"id":52139300,"name":"5***1642","winloss":-161276,"children":[{"id":98250850,"name":"***05623","winloss":-1864},{"id":11747287,"name":"**32*219","winloss":-18478},{"id":72952146,"name":"5*1*666*","winloss":-1743},{"id":22077274,"name":"5*911**4","winloss":-8220},{"id":25387007,"name":"5400***4","winloss":-3818},{"id":69175802,"name":"55**2326","winloss":450},{"id":45385707,"name":"57***507","winloss":3118},{"id":33121483,"name":"60**380*","winloss":-27116},{"id":66212660,"name":"61*4*8*9","winloss":1936},{"id":85084962,"name":"61*71746","winloss":40},{"id":53834583,"name":"8489*005","winloss":40},{"id":52659523,"name":"9*41706*","winloss":-652},{"id":39567238,"name":"9333278*","winloss":0}]},{"id":40330221,"name":"5**2111*","winloss":1952},{"id":86899624,"name":"5**23*34","winloss":1993,"children":[{"id":49940531,"name":"5*663157","winloss":0}]},{"id":65110801,"name":"51***878","winloss":1673},{"id":18781356,"name":"5110287*","winloss":0},{"id":18552272,"name":"511324*6","winloss":0},{"id":88739383,"name":"51827*27","winloss":0},{"id":40132141,"name":"5182772*","winloss":0},{"id":79505745,"name":"534*8169","winloss":0},{"id":65116703,"name":"54***360","winloss":1468},{"id":62237810,"name":"55*10926","winloss":0},{"id":36152863,"name":"5502823*","winloss":0},{"id":91103260,"name":"554*0248","winloss":0},{"id":91624477,"name":"55409*25","winloss":45},{"id":49415058,"name":"5601*867","winloss":0},{"id":15443433,"name":"57*34150","winloss":30},{"id":16298514,"name":"59*16628","winloss":0},{"id":93219630,"name":"5988795*","winloss":0},{"id":79073393,"name":"5989182*","winloss":19},{"id":58646344,"name":"6***4578","winloss":-6338,"children":[{"id":73960003,"name":"'- Eva","winloss":-2167},{"id":42744729,"name":"*2302224","winloss":41},{"id":33354552,"name":"~ 省見覺😃","winloss":47},{"id":51523646,"name":"5222102*","winloss":0},{"id":92452989,"name":"601495*1","winloss":0,"children":[{"id":35657311,"name":"9018762*","winloss":0}]}]},{"id":76942601,"name":"6*131632","winloss":0},{"id":29567988,"name":"6*18*539","winloss":325},{"id":27656031,"name":"6*465280","winloss":0},{"id":27268083,"name":"6*849126","winloss":0},{"id":79923337,"name":"61*57009","winloss":0},{"id":40821734,"name":"6150*719","winloss":0},{"id":78862731,"name":"6157169*","winloss":0},{"id":59009393,"name":"617232*4","winloss":0},{"id":74898992,"name":"62*03042","winloss":39},{"id":74524373,"name":"6257*340","winloss":0},{"id":92197284,"name":"630922*1","winloss":38},{"id":86913321,"name":"6360*069","winloss":0},{"id":45913502,"name":"649821*5","winloss":0},{"id":15453230,"name":"655*5301","winloss":0},{"id":62188490,"name":"658*3575","winloss":0},{"id":48013100,"name":"6679732*","winloss":0},{"id":37468670,"name":"679*3336","winloss":0},{"id":46679337,"name":"68*85965","winloss":0},{"id":96799545,"name":"68510*94","winloss":0},{"id":11189657,"name":"6871298*","winloss":0},{"id":34900386,"name":"69*55696","winloss":0},{"id":16168322,"name":"6926*256","winloss":0},{"id":11533560,"name":"699103*1","winloss":0},{"id":84953756,"name":"9*126931","winloss":0},{"id":29039657,"name":"9*267854","winloss":45},{"id":26930715,"name":"9*333662","winloss":0},{"id":92333541,"name":"90*97252","winloss":0},{"id":22573892,"name":"908573*6","winloss":0},{"id":70203798,"name":"9135*071","winloss":0},{"id":62995784,"name":"9168*790","winloss":0},{"id":52886711,"name":"92*56156","winloss":38},{"id":10727370,"name":"922*5169","winloss":0},{"id":36925380,"name":"92248*81","winloss":0},{"id":92360438,"name":"923*7369","winloss":0},{"id":25100364,"name":"92520*99","winloss":0},{"id":17922794,"name":"929*28*5","winloss":306},{"id":96728899,"name":"9356*699","winloss":31},{"id":69739793,"name":"9428*218","winloss":95},{"id":19686552,"name":"94669*95","winloss":0},{"id":47012077,"name":"95170*62","winloss":0},{"id":96849213,"name":"95217*88","winloss":0},{"id":50695242,"name":"954898*8","winloss":0},{"id":42520296,"name":"958*9263","winloss":0},{"id":32763616,"name":"96*55948","winloss":0},{"id":33011068,"name":"962*9484","winloss":0},{"id":57405418,"name":"9683*628","winloss":0},{"id":75882185,"name":"96888*49","winloss":0},{"id":87953836,"name":"97*53929","winloss":0},{"id":98379520,"name":"971666*8","winloss":0},{"id":83560929,"name":"97229*55","winloss":0},{"id":14191165,"name":"97341*45","winloss":0},{"id":41111008,"name":"9738*623","winloss":23},{"id":78325399,"name":"980979*8","winloss":0},{"id":61827034,"name":"983*6637","winloss":19},{"id":84802033,"name":"984*5808","winloss":0},{"id":80345295,"name":"一方生","winloss":-1617,"children":[{"id":85559315,"name":"6979986*","winloss":0},{"id":93035717,"name":"9356898*","winloss":0}]}]},{"id":64192366,"name":"Susanna","winloss":-4150},{"id":76885234,"name":"'-晴晴","winloss":-58565,"children":[{"id":25986902,"name":"'- May","winloss":-48023,"children":[{"id":77101771,"name":"*190*54*","winloss":-31230},{"id":16393121,"name":"1368494*066","winloss":0},{"id":10241413,"name":"606981*0","winloss":0}]},{"id":44519847,"name":"*1699018","winloss":0},{"id":30078851,"name":"17*36*36533","winloss":614},{"id":23253757,"name":"5317*418","winloss":0},{"id":38017534,"name":"56*60039","winloss":0},{"id":91335171,"name":"59*24521","winloss":0},{"id":64750134,"name":"60*37211","winloss":0},{"id":37967938,"name":"66*70288","winloss":0},{"id":21223333,"name":"8482987*","winloss":0},{"id":54447921,"name":"9*869475","winloss":0},{"id":91341833,"name":"91058*93","winloss":0},{"id":44117538,"name":"91733*65","winloss":23}]},{"id":18901618,"name":"'-朱荣华","winloss":-10256,"children":[{"id":65783206,"name":"*3604781","winloss":27},{"id":22985323,"name":"*5464349","winloss":0},{"id":92883153,"name":"557*8323","winloss":0},{"id":39773385,"name":"5579*632","winloss":59},{"id":49125704,"name":"63*98100","winloss":23},{"id":42362192,"name":"65580*91","winloss":0},{"id":32404135,"name":"673*46*3","winloss":833},{"id":51255739,"name":"674323*0","winloss":44},{"id":77360848,"name":"9*433293","winloss":0},{"id":64524787,"name":"9273*0*0","winloss":699},{"id":16546953,"name":"981*8552","winloss":0}]},{"id":76130565,"name":"莫詠琦","winloss":193,"children":[{"id":16825513,"name":"9*300052","winloss":0},{"id":17343189,"name":"93639*16","winloss":0}]},{"id":35361085,"name":"金文","winloss":7397,"children":[{"id":20020629,"name":"'- Kannie Chung","winloss":-113084,"children":[{"id":63400802,"name":"1*989502189","winloss":0},{"id":45197404,"name":"13*43730974","winloss":0},{"id":62522158,"name":"1341357*660","winloss":0,"children":[{"id":21870515,"name":"1368*016364","winloss":0}]},{"id":92901987,"name":"6413148*","winloss":0},{"id":87928919,"name":"840*1908","winloss":0},{"id":84787728,"name":"93*57011","winloss":0}]},{"id":91272867,"name":"*1617319","winloss":0},{"id":45250117,"name":"*5414944","winloss":0},{"id":42983424,"name":"*6600383","winloss":0},{"id":86319462,"name":"*7748561","winloss":0},{"id":66511855,"name":"*9210609","winloss":0},{"id":90449995,"name":"5577978*","winloss":33,"children":[{"id":64537778,"name":"5112*609","winloss":0},{"id":18924040,"name":"92*76040","winloss":0}]},{"id":37815557,"name":"56*63887","winloss":0},{"id":57423206,"name":"5626*626","winloss":0},{"id":31004330,"name":"599867*9","winloss":0},{"id":54466150,"name":"6*055700","winloss":35},{"id":42464112,"name":"6*285618","winloss":0},{"id":23453716,"name":"6*974756","winloss":0},{"id":16996893,"name":"60*93113","winloss":0},{"id":62305196,"name":"6102*598","winloss":0},{"id":14831722,"name":"61449*43","winloss":0,"children":[{"id":68720845,"name":"530513*1","winloss":0}]},{"id":69883896,"name":"615527*2","winloss":0},{"id":17102970,"name":"61716*59","winloss":0},{"id":78385363,"name":"63*58524","winloss":0},{"id":13485235,"name":"634*8638","winloss":0},{"id":71114569,"name":"647*6164","winloss":0},{"id":90367488,"name":"66*0105*","winloss":176,"children":[{"id":81287657,"name":"*5405923","winloss":0},{"id":42455523,"name":"5113*903","winloss":0},{"id":26193534,"name":"988504*9","winloss":0}]},{"id":44339644,"name":"67*19304","winloss":0},{"id":76558938,"name":"67*68910","winloss":0},{"id":21377724,"name":"68*97633","winloss":0},{"id":46617875,"name":"6880998*","winloss":0},{"id":33547517,"name":"9*501626","winloss":0},{"id":41795342,"name":"9*741454","winloss":0},{"id":75596512,"name":"90*78607","winloss":0},{"id":19259152,"name":"9026*848","winloss":0},{"id":98196746,"name":"90766*36","winloss":0,"children":[{"id":67863642,"name":"92*29109","winloss":0}]},{"id":90753158,"name":"915*7573","winloss":0},{"id":61104409,"name":"9192079*","winloss":0},{"id":55090070,"name":"924*7104","winloss":0},{"id":10278373,"name":"9256418*","winloss":0},{"id":85964313,"name":"92829*63","winloss":0},{"id":89960140,"name":"932*1379","winloss":0},{"id":40793021,"name":"9449*140","winloss":0,"children":[{"id":21639871,"name":"*8865311","winloss":0},{"id":58546024,"name":"1*794721648","winloss":0},{"id":44453564,"name":"5*225286","winloss":0},{"id":80134956,"name":"5324*554","winloss":0},{"id":21444836,"name":"6647088*","winloss":0},{"id":45639324,"name":"938*0799","winloss":0}]},{"id":33548073,"name":"95223*80","winloss":0},{"id":50432476,"name":"96*04953","winloss":0,"children":[{"id":89073553,"name":"840*7524","winloss":0}]},{"id":71453930,"name":"966314**","winloss":286},{"id":78095771,"name":"98*14992","winloss":0},{"id":40686705,"name":"986*0360","winloss":0},{"id":90150852,"name":"987722*2","winloss":0},{"id":67074141,"name":"小吉","winloss":-130462,"children":[{"id":28593055,"name":"'- Favour Monica","winloss":-360},{"id":31169423,"name":"*0573587","winloss":0},{"id":97177584,"name":"*2008700","winloss":0},{"id":96224174,"name":"*230*7*7","winloss":4238,"children":[{"id":94682314,"name":"963235*8","winloss":0}]},{"id":64197654,"name":"*26**516","winloss":12624,"children":[{"id":36760287,"name":"51*531*5","winloss":198},{"id":15503255,"name":"65***314","winloss":11016},{"id":95096379,"name":"9568*768","winloss":48}]},{"id":67311001,"name":"*3661275","winloss":0},{"id":81431953,"name":"*4413431","winloss":0},{"id":37854128,"name":"*4728164","winloss":39},{"id":29776604,"name":"*6198238","winloss":0},{"id":88086444,"name":"181076167*1","winloss":0},{"id":74017912,"name":"1987648*924","winloss":0},{"id":26684747,"name":"4*600323","winloss":0},{"id":59471198,"name":"51*88509","winloss":0},{"id":97200323,"name":"511644*0","winloss":0},{"id":66256944,"name":"5166849*","winloss":0},{"id":85373771,"name":"52*76983","winloss":18},{"id":36229520,"name":"53*65188","winloss":13},{"id":31648285,"name":"530027*2","winloss":0},{"id":99229597,"name":"5338*738","winloss":0},{"id":63387657,"name":"54*3391*","winloss":704},{"id":57153819,"name":"55*18302","winloss":0},{"id":60543289,"name":"554267*8","winloss":0},{"id":60600074,"name":"5548*145","winloss":0},{"id":17801554,"name":"556*0360","winloss":0},{"id":82519549,"name":"57038*63","winloss":13},{"id":27662603,"name":"6*010488","winloss":0},{"id":59266692,"name":"6*333848","winloss":0},{"id":92425213,"name":"6*365101","winloss":0},{"id":95711840,"name":"6128377*","winloss":0},{"id":97771887,"name":"623*8*5*","winloss":-2030},{"id":13721634,"name":"6252538*","winloss":0},{"id":60310320,"name":"6764*918","winloss":0},{"id":65562927,"name":"68469*53","winloss":18},{"id":57853776,"name":"69334*53","winloss":0,"children":[{"id":40322296,"name":"*3449843","winloss":0},{"id":38255342,"name":"9555296*","winloss":0}]},{"id":63995564,"name":"9*5**668","winloss":-11587},{"id":15908574,"name":"9042*160","winloss":30},{"id":94407182,"name":"9178*575","winloss":24,"children":[{"id":34234783,"name":"*7386781","winloss":0},{"id":52919240,"name":"9*184236","winloss":23}]},{"id":47213951,"name":"949**268","winloss":903},{"id":28810238,"name":"95434**9","winloss":-360,"children":[{"id":38383804,"name":"131499458*4","winloss":45}]},{"id":73505032,"name":"9778*076","winloss":0},{"id":78992345,"name":"988147*5","winloss":10},{"id":89274021,"name":"醫院","winloss":-1868,"children":[{"id":37773314,"name":"**713*00","winloss":-13661,"children":[{"id":57037755,"name":"**386333","winloss":-430},{"id":98464620,"name":"975***28","winloss":-78955,"children":[{"id":67920002,"name":"902*2486","winloss":-63}]}]},{"id":81724225,"name":"*3**1299","winloss":-2100},{"id":91078541,"name":"*38202*9","winloss":-430},{"id":24344037,"name":"~ Kay","winloss":-40370,"children":[{"id":95643284,"name":"*555419*","winloss":-430}]},{"id":62967748,"name":"5*2**664","winloss":-8481},{"id":67134865,"name":"5*9*3*33","winloss":-22430},{"id":52928226,"name":"59**0868","winloss":-430},{"id":81708395,"name":"6**6*255","winloss":-15700},{"id":33965553,"name":"6584**58","winloss":-430},{"id":97842300,"name":"9*180*62","winloss":-430},{"id":89616204,"name":"951*1223","winloss":0},{"id":19284428,"name":"'-李仙","winloss":-2800}]}]},{"id":21405963,"name":"金文","winloss":165}]}]},{"id":61329473,"name":"契媽","winloss":-70106,"children":[{"id":78334021,"name":"'- Annie","winloss":-79499,"children":[{"id":46227469,"name":"'- Cindy","winloss":-4825,"children":[{"id":82746974,"name":"*2832738","winloss":0},{"id":33522668,"name":"*500**78","winloss":1716},{"id":18966851,"name":"*7419310","winloss":46},{"id":76126901,"name":"5*164*2*","winloss":1253},{"id":38887245,"name":"5304095*","winloss":47},{"id":42730374,"name":"542922*8","winloss":0},{"id":49103499,"name":"566*6571","winloss":0},{"id":73966939,"name":"577869*2","winloss":73},{"id":30842208,"name":"68133*5*","winloss":-317},{"id":42498879,"name":"683113*5","winloss":0},{"id":73191228,"name":"9*881872","winloss":26},{"id":55256800,"name":"91*37*7*","winloss":2719},{"id":78309682,"name":"988525*9","winloss":34}]},{"id":64887428,"name":"'- Suki","winloss":829},{"id":71590499,"name":"*093*0*7","winloss":-5012},{"id":25284514,"name":"*2*33*83","winloss":-25351,"children":[{"id":35648508,"name":"**08970*","winloss":-2170},{"id":95910203,"name":"**1617*3","winloss":1305},{"id":75377000,"name":"**43*355","winloss":-7446},{"id":27432374,"name":"**61*618","winloss":3306},{"id":44211539,"name":"*22**706","winloss":-6555},{"id":98293129,"name":"*236733*","winloss":695},{"id":30492746,"name":"*3*955*9","winloss":-7377},{"id":27472632,"name":"*88*218*","winloss":-14212},{"id":71246000,"name":"1*0**334999","winloss":-19256},{"id":60682412,"name":"15*76208836","winloss":0},{"id":85765487,"name":"15819***904","winloss":-9910},{"id":13777581,"name":"4*2*789*","winloss":-14229},{"id":85099679,"name":"441*0*8*","winloss":-7437},{"id":27181032,"name":"5*6642*4","winloss":136},{"id":71669321,"name":"5*806840","winloss":0},{"id":92078718,"name":"55***097","winloss":-9648},{"id":95785055,"name":"67*204**","winloss":-7417},{"id":68708078,"name":"695*2608","winloss":13},{"id":30072466,"name":"935*1769","winloss":47},{"id":43502682,"name":"946*859*","winloss":183}]},{"id":85590107,"name":"*2250*3*","winloss":3084},{"id":20346822,"name":"*28*9862","winloss":695},{"id":11305216,"name":"*3171723","winloss":0},{"id":46143368,"name":"*5480*99","winloss":726},{"id":94313747,"name":"*63*0*20","winloss":1343},{"id":24611986,"name":"*75*0*68","winloss":4090},{"id":87528072,"name":"*975*3*5","winloss":1649},{"id":16490058,"name":"5507255*","winloss":0},{"id":87131722,"name":"5911**7*","winloss":2098},{"id":28904115,"name":"63*86883","winloss":0},{"id":29095448,"name":"66183***","winloss":-3503,"children":[{"id":56943487,"name":"*27*1870","winloss":684},{"id":17423331,"name":"651*9131","winloss":18},{"id":42452952,"name":"65778*95","winloss":92},{"id":58120039,"name":"90120**8","winloss":838}]},{"id":91804484,"name":"908**3*1","winloss":3107,"children":[{"id":53682788,"name":"53908*1*","winloss":186},{"id":19261264,"name":"62568*05","winloss":33},{"id":36663713,"name":"6309224*","winloss":23},{"id":32834440,"name":"6513126*","winloss":23},{"id":97592500,"name":"676*2844","winloss":23},{"id":13454020,"name":"8481254*","winloss":23},{"id":11766625,"name":"905*0841","winloss":23},{"id":38377545,"name":"938*55*3","winloss":179},{"id":11878283,"name":"9391519*","winloss":33},{"id":52488842,"name":"950210*0","winloss":13},{"id":78434985,"name":"95680**6","winloss":182},{"id":27380904,"name":"9647*33*","winloss":182}]},{"id":35395402,"name":"9143*806","winloss":23},{"id":64454275,"name":"95037*02","winloss":0},{"id":12636746,"name":"983*98*8","winloss":234,"children":[{"id":53107945,"name":"~ 😊","winloss":-2200},{"id":24565659,"name":"55***698","winloss":-2100},{"id":45668681,"name":"6*476**0","winloss":-2100},{"id":95704609,"name":"64*26770","winloss":18},{"id":75095810,"name":"689**61*","winloss":-2187},{"id":15153373,"name":"98715*65","winloss":18}]},{"id":53557064,"name":"9839**22","winloss":-430},{"id":63950165,"name":"98652**0","winloss":681},{"id":92471183,"name":"'-儀","winloss":-748,"children":[{"id":38459944,"name":"'- Wing","winloss":-7085},{"id":52016449,"name":"987**435","winloss":686}]}]},{"id":41261627,"name":"'- lianhuahuang02*","winloss":-12,"children":[{"id":70142129,"name":"*2368319","winloss":0},{"id":93565773,"name":"*4100753","winloss":0},{"id":30166306,"name":"51*7*998","winloss":-360},{"id":48845675,"name":"511572*9","winloss":28},{"id":44616788,"name":"522*8332","winloss":0},{"id":52112977,"name":"538*5468","winloss":0},{"id":50916148,"name":"540*9979","winloss":0},{"id":77139118,"name":"55*6**24","winloss":-14791,"children":[{"id":48307332,"name":"*6810050","winloss":0},{"id":72984707,"name":"5*217537","winloss":0},{"id":60258703,"name":"52406*25","winloss":0},{"id":48793982,"name":"56389*81","winloss":0},{"id":74244118,"name":"5932*186","winloss":0},{"id":89459391,"name":"60*26543","winloss":0},{"id":92246930,"name":"6107*667","winloss":0},{"id":53618971,"name":"64656*61","winloss":0},{"id":79806150,"name":"90*35656","winloss":0},{"id":44993539,"name":"950*7593","winloss":0},{"id":46739430,"name":"9504*493","winloss":0},{"id":43697737,"name":"983351*6","winloss":0}]},{"id":94413573,"name":"6*441073","winloss":96},{"id":68009288,"name":"61551*55","winloss":0},{"id":93169077,"name":"62*75898","winloss":0},{"id":20840234,"name":"6201*391","winloss":0},{"id":32187702,"name":"622982*8","winloss":34,"children":[{"id":76546260,"name":"91960*55","winloss":0}]},{"id":27042678,"name":"64**013*","winloss":-3516},{"id":25026270,"name":"655210*3","winloss":0},{"id":28734209,"name":"679*3800","winloss":0},{"id":12634886,"name":"9*802183","winloss":0},{"id":22303912,"name":"9168013*","winloss":0},{"id":74426552,"name":"957072*6","winloss":0},{"id":57900519,"name":"9600*023","winloss":0},{"id":35198720,"name":"96106*75","winloss":0}]},{"id":30906658,"name":"'- MiuMiu","winloss":-194,"children":[{"id":99720566,"name":"6**23*28","winloss":-5760},{"id":60643128,"name":"6*885247","winloss":0},{"id":44142893,"name":"60*19863","winloss":0},{"id":84292748,"name":"9***1525","winloss":-6265},{"id":19745969,"name":"963*7896","winloss":0}]},{"id":40751550,"name":"'- Shan","winloss":-2514},{"id":93850194,"name":"**716050","winloss":388},{"id":38444012,"name":"*2723296","winloss":0},{"id":89292691,"name":"1380*25*89*","winloss":1068,"children":[{"id":44740190,"name":"53*78104","winloss":0},{"id":14736975,"name":"'-小雪","winloss":-10400}]},{"id":78471464,"name":"596*1902","winloss":62},{"id":25936838,"name":"6*4*03*5","winloss":-73247,"children":[{"id":79671368,"name":"'- May","winloss":-12490,"children":[{"id":96654437,"name":"62*21098","winloss":0}]},{"id":28047277,"name":"'- WONG","winloss":-43954,"children":[{"id":55929218,"name":"**28226*","winloss":-5629},{"id":89601240,"name":"*0*2362*","winloss":-7441},{"id":55433225,"name":"*09*0039","winloss":917},{"id":45347348,"name":"*127**50","winloss":-6100,"children":[{"id":57744194,"name":"**15*085","winloss":-32405},{"id":63764175,"name":"**58824*","winloss":1093},{"id":79556670,"name":"*250*3*5","winloss":-3600},{"id":58772997,"name":"*3342084","winloss":13},{"id":39555293,"name":"*4037**6","winloss":-13746},{"id":95706994,"name":"*621**09","winloss":-2811},{"id":17856610,"name":"51*992**","winloss":-1837},{"id":82372991,"name":"6**012*7","winloss":-1422},{"id":65598792,"name":"6*7*57*3","winloss":-1982},{"id":29150850,"name":"636*46**","winloss":-15824},{"id":48805390,"name":"64*1*6*8","winloss":-4200},{"id":20578765,"name":"65*71823","winloss":40},{"id":50635052,"name":"6823326*","winloss":0}]},{"id":31258633,"name":"*1786844","winloss":0},{"id":25995780,"name":"57031**7","winloss":-636},{"id":34988460,"name":"6*9**984","winloss":-2045},{"id":57122583,"name":"695*22**","winloss":-2728},{"id":81512882,"name":"91*98018","winloss":38,"children":[{"id":77861436,"name":"*7008646","winloss":0},{"id":21833800,"name":"5**9*978","winloss":-2626}]},{"id":19350598,"name":"96518*91","winloss":85},{"id":57242840,"name":"97*06**4","winloss":-14770,"children":[{"id":44779310,"name":"*255*2*6","winloss":-3900},{"id":36554309,"name":"*7*6*102","winloss":-3821},{"id":96266826,"name":"6*2218**","winloss":2226},{"id":56004783,"name":"6134**28","winloss":166},{"id":93146545,"name":"65**740*","winloss":3942},{"id":70119866,"name":"97**29*1","winloss":1573}]},{"id":50804087,"name":"971**43*","winloss":5985,"children":[{"id":76996872,"name":"**0686*6","winloss":-25503},{"id":63874174,"name":"*7921*93","winloss":113},{"id":74413243,"name":"8489*732","winloss":1,"children":[{"id":64838407,"name":"5*6*1445","winloss":107}]},{"id":47453934,"name":"92*6*9*7","winloss":2283},{"id":78630148,"name":"96*37**7","winloss":-2100}]}]},{"id":83620132,"name":"*228*70*","winloss":2541,"children":[{"id":62419620,"name":"*403*07*","winloss":-2969}]},{"id":40450928,"name":"*3**6316","winloss":-4164},{"id":55735164,"name":"*55062**","winloss":-8446,"children":[{"id":91024147,"name":"**7*5796","winloss":-4200},{"id":23583768,"name":"*1306*6*","winloss":-3942,"children":[{"id":17622187,"name":"6090*294","winloss":36}]},{"id":17830814,"name":"*3205198","winloss":17},{"id":69347786,"name":"44584*05","winloss":0},{"id":55772590,"name":"44619*01","winloss":0},{"id":93658798,"name":"5*977105","winloss":35},{"id":34453784,"name":"54173*01","winloss":0},{"id":39916365,"name":"5631*3**","winloss":-3868,"children":[{"id":53935660,"name":"*8**6308","winloss":1045,"children":[{"id":94713959,"name":"602**7*3","winloss":3837},{"id":47411071,"name":"62*65853","winloss":55}]},{"id":74857361,"name":"5301809*","winloss":14},{"id":18099210,"name":"63*76200","winloss":0},{"id":34527494,"name":"9*4179*3","winloss":751},{"id":68586718,"name":"9819757*","winloss":22}]},{"id":24467056,"name":"67***808","winloss":-2199,"children":[{"id":93444016,"name":"***05658","winloss":-2640}]},{"id":54966240,"name":"843*4977","winloss":0},{"id":68002344,"name":"9*898365","winloss":0},{"id":32090726,"name":"90*07*5*","winloss":-2591},{"id":48365810,"name":"95898*68","winloss":0}]},{"id":65678986,"name":"*6075305","winloss":0},{"id":75115340,"name":"*6398038","winloss":0},{"id":88723538,"name":"5*061**2","winloss":-16885},{"id":54092220,"name":"52**63*3","winloss":-1414,"children":[{"id":38493350,"name":"98*84060","winloss":48}]},{"id":64514005,"name":"6**2*490","winloss":-1303},{"id":52640232,"name":"6*098**2","winloss":-5995,"children":[{"id":87568299,"name":"9213*136","winloss":0}]},{"id":46859894,"name":"6*7*68*1","winloss":-6477,"children":[{"id":51113942,"name":"5*1*879*","winloss":-6340},{"id":84789219,"name":"6***9098","winloss":-5000}]},{"id":55294565,"name":"6*7655*7","winloss":653},{"id":49281907,"name":"6*892**1","winloss":-32767},{"id":50474917,"name":"60240*96","winloss":-84,"children":[{"id":68908890,"name":"612**55*","winloss":-2615}]},{"id":40408161,"name":"61*3659*","winloss":319},{"id":14808123,"name":"9089*363","winloss":0},{"id":31997506,"name":"943**57*","winloss":-14127},{"id":93854724,"name":"'-吳慧碧","winloss":-29626},{"id":47769782,"name":"'-小平","winloss":10709,"children":[{"id":72540889,"name":"9*72**38","winloss":-90957,"children":[{"id":13569019,"name":"**115*29","winloss":-2200},{"id":97021132,"name":"**3376*0","winloss":-4900},{"id":89199035,"name":"*055*2*8","winloss":-13516},{"id":71884428,"name":"*7622378","winloss":50},{"id":78747965,"name":"*9*19*96","winloss":-6696},{"id":74448251,"name":"5*889886","winloss":0},{"id":76560525,"name":"55*43608","winloss":33},{"id":14351310,"name":"6*34**65","winloss":-16085},{"id":36792672,"name":"6*417500","winloss":0},{"id":22608200,"name":"6882*798","winloss":40},{"id":18680587,"name":"9*7289**","winloss":-52030},{"id":63295960,"name":"9*91*475","winloss":-800},{"id":31176683,"name":"9678*157","winloss":0}]},{"id":52678578,"name":"98*1*97*","winloss":1370}]}]},{"id":84069589,"name":"6*6*2*13","winloss":1063,"children":[{"id":85101420,"name":"*4483265","winloss":0},{"id":61571545,"name":"5642453*","winloss":0,"children":[{"id":52448103,"name":"5577946*","winloss":0},{"id":77310762,"name":"59447*63","winloss":0}]},{"id":97373996,"name":"673934*3","winloss":0,"children":[{"id":73508453,"name":"'- (Number only)","winloss":0},{"id":13925759,"name":"9*9*9458","winloss":330},{"id":91028088,"name":"91019*03","winloss":0},{"id":35966756,"name":"'-小芳","winloss":-285983,"children":[{"id":81644609,"name":"'- Mango","winloss":-3476},{"id":39916940,"name":"'- Miss Ho","winloss":-433094,"children":[{"id":26724264,"name":"'- Loklokchan","winloss":-32920},{"id":39524951,"name":"'- WAICHAN","winloss":-1535},{"id":15118755,"name":"'- YUNGFAN","winloss":2736},{"id":68969162,"name":"**3*6155","winloss":-35225},{"id":99715127,"name":"*21*6925","winloss":630},{"id":78958153,"name":"*3262042","winloss":0},{"id":52711921,"name":"*3583298","winloss":0},{"id":66795734,"name":"*4229080","winloss":0},{"id":93446857,"name":"*6040557","winloss":0},{"id":27395814,"name":"*992016*","winloss":-430},{"id":44813245,"name":"15017**852*","winloss":-8700},{"id":46890826,"name":"472*8660","winloss":0},{"id":75473287,"name":"4742866*","winloss":0},{"id":21611816,"name":"554014*0","winloss":0},{"id":15282867,"name":"6*364*0*","winloss":-28710,"children":[{"id":86778800,"name":"682*0347","winloss":0}]},{"id":50448675,"name":"6*844**0","winloss":-18123,"children":[{"id":33429977,"name":"9*482299","winloss":0}]},{"id":55844856,"name":"60*89117","winloss":0},{"id":18955671,"name":"6159**5*","winloss":-2694},{"id":30382010,"name":"6224652*","winloss":0},{"id":78608499,"name":"635055*3","winloss":0},{"id":51182973,"name":"657*9738","winloss":82},{"id":52640743,"name":"658**9*3","winloss":-35893},{"id":50199175,"name":"66*17374","winloss":0},{"id":11954130,"name":"9*082*5*","winloss":1125},{"id":32291398,"name":"9*873**4","winloss":1054},{"id":58281722,"name":"93**8*96","winloss":2576},{"id":36474999,"name":"9384901*","winloss":0},{"id":82836991,"name":"94295*27","winloss":0},{"id":61093257,"name":"958***13","winloss":-40616},{"id":73544053,"name":"9656015*","winloss":0},{"id":50166460,"name":"981*0832","winloss":0},{"id":69840008,"name":"982*6*3*","winloss":-4592},{"id":91288938,"name":"983346*9","winloss":0},{"id":49445364,"name":"985*6231","winloss":79,"children":[{"id":80979801,"name":"135357*6831","winloss":0},{"id":37309058,"name":"5232*916","winloss":0},{"id":22773298,"name":"9*466938","winloss":0}]},{"id":46804601,"name":"'-趙換瓊","winloss":-7062,"children":[{"id":40450198,"name":"*1582955","winloss":0},{"id":22308100,"name":"*9364334","winloss":0}]}]},{"id":72035479,"name":"**198169","winloss":470,"children":[{"id":33426279,"name":"95816*93","winloss":30}]},{"id":17018322,"name":"**94*375","winloss":-7216,"children":[{"id":73326027,"name":"*0497519","winloss":0},{"id":99318451,"name":"*5307955","winloss":0},{"id":21142855,"name":"522280*7","winloss":0},{"id":37361527,"name":"65875*02","winloss":0},{"id":60688122,"name":"96720*65","winloss":32}]},{"id":22546179,"name":"*1141083","winloss":0,"children":[{"id":87113456,"name":"*3790740","winloss":0}]},{"id":12264983,"name":"*158*9*2","winloss":4559,"children":[{"id":72682672,"name":"*67**366","winloss":-2800}]},{"id":72623841,"name":"*2*6*068","winloss":4329},{"id":37653239,"name":"*3**1661","winloss":-8877},{"id":36284526,"name":"*310*349","winloss":470,"children":[{"id":57524193,"name":"6*47560*","winloss":318}]},{"id":24176732,"name":"*3295382","winloss":33,"children":[{"id":81951647,"name":"9**2788*","winloss":-3900,"children":[{"id":74921237,"name":"9788798*","winloss":0}]}]},{"id":92592035,"name":"*3648832","winloss":12},{"id":52494862,"name":"*4232761","winloss":0},{"id":14388763,"name":"*5752*89","winloss":343},{"id":14466414,"name":"*7398698","winloss":33,"children":[{"id":51282476,"name":"6233*931","winloss":64}]},{"id":38761864,"name":"~ 😊","winloss":-18154},{"id":18548393,"name":"52**49*1","winloss":-39397,"children":[{"id":99734643,"name":"*3439049","winloss":28},{"id":57256703,"name":"5167*997","winloss":22},{"id":78800565,"name":"6*709080","winloss":0},{"id":61201782,"name":"638*5350","winloss":47},{"id":45490892,"name":"6734999*","winloss":0},{"id":95270248,"name":"697*6919","winloss":48},{"id":29737247,"name":"9492*75*","winloss":104,"children":[{"id":55239218,"name":"*668705545","winloss":0},{"id":37223405,"name":"549*2832","winloss":0},{"id":61036854,"name":"9*708506","winloss":0},{"id":75298106,"name":"9475724*","winloss":0},{"id":10346573,"name":"961141*4","winloss":0}]}]},{"id":84103726,"name":"5222492*","winloss":0},{"id":37296345,"name":"6*4*2*35","winloss":5699,"children":[{"id":15700392,"name":"***60928","winloss":-4340},{"id":54164489,"name":"*4027*85","winloss":444}]},{"id":68597569,"name":"6015**14","winloss":-220,"children":[{"id":41449282,"name":"*6395513","winloss":10},{"id":99173202,"name":"530045**","winloss":161},{"id":70746358,"name":"539*7527","winloss":0},{"id":99648443,"name":"9142*780","winloss":0,"children":[{"id":95904151,"name":"4233*234","winloss":0},{"id":28436824,"name":"52250*49","winloss":0}]},{"id":19485177,"name":"92798*32","winloss":0},{"id":68584019,"name":"94*54277","winloss":0},{"id":84177078,"name":"9409*449","winloss":0,"children":[{"id":23204337,"name":"9535*953","winloss":0}]},{"id":28325469,"name":"96*73991","winloss":0}]},{"id":70734560,"name":"603*0811","winloss":78,"children":[{"id":57868142,"name":"97848*55","winloss":20}]},{"id":39525929,"name":"60356*62","winloss":0},{"id":73501304,"name":"62*55820","winloss":16},{"id":78689920,"name":"622*62**","winloss":1864},{"id":92802513,"name":"657*7228","winloss":34,"children":[{"id":48356735,"name":"*34077**","winloss":-8100}]},{"id":99188533,"name":"67*32903","winloss":48},{"id":29894329,"name":"673*5*0*","winloss":7997,"children":[{"id":37291824,"name":"*838497*","winloss":138}]},{"id":44677279,"name":"9*22**83","winloss":-94968},{"id":30889968,"name":"9*89*6*5","winloss":-35002,"children":[{"id":11814861,"name":"65753*78","winloss":0}]},{"id":24506690,"name":"905*6638","winloss":0},{"id":73049554,"name":"916***16","winloss":-5869},{"id":77709675,"name":"924322*6","winloss":60},{"id":92786245,"name":"92876*73","winloss":0},{"id":72300515,"name":"9288**18","winloss":962,"children":[{"id":60273475,"name":"5*112633","winloss":27},{"id":89661520,"name":"943375*1","winloss":0}]},{"id":79551691,"name":"96*21826","winloss":0},{"id":61942798,"name":"9772285*","winloss":0},{"id":36375147,"name":"98*50806","winloss":64,"children":[{"id":61145119,"name":"**819199","winloss":895}]},{"id":52220858,"name":"'-張偉添","winloss":23429,"children":[{"id":34186660,"name":"*20842*9","winloss":-430},{"id":31031092,"name":"*3*29*36","winloss":-88069},{"id":29427564,"name":"6431*102","winloss":0}]}]},{"id":55736236,"name":"'-红霞","winloss":-58890,"children":[{"id":28320698,"name":"'- Eliza","winloss":-18748,"children":[{"id":43487424,"name":"*3417600","winloss":0},{"id":84426167,"name":"630*50**","winloss":-49069,"children":[{"id":40176043,"name":"13*18607733","winloss":0},{"id":32764655,"name":"134*5248118","winloss":0},{"id":20376322,"name":"13684985*49","winloss":0},{"id":59048833,"name":"6*03501*","winloss":145},{"id":39408140,"name":"9*0*2112","winloss":303}]},{"id":93847284,"name":"699*9**1","winloss":3561},{"id":84494560,"name":"94*9*67*","winloss":-5970,"children":[{"id":99777606,"name":"9***2231","winloss":-1095},{"id":26743820,"name":"970*10**","winloss":-2100}]},{"id":19645989,"name":"9678*314","winloss":0}]},{"id":50302105,"name":"'- Ism**6*1","winloss":-46558,"children":[{"id":86219914,"name":"*032*09*","winloss":-22514},{"id":16712826,"name":"*163*3*8","winloss":-3843},{"id":52601684,"name":"~ Yu Yu Lian","winloss":-16402,"children":[{"id":74002259,"name":"*37*5281","winloss":758},{"id":44305325,"name":"*5506*56","winloss":-793},{"id":47433289,"name":"*9467908","winloss":39},{"id":14956761,"name":"~ Ivy","winloss":-21422,"children":[{"id":43474755,"name":"52*63638","winloss":0},{"id":79931119,"name":"5226*292","winloss":0}]},{"id":32982608,"name":"5616484*","winloss":23},{"id":83208700,"name":"6158469*","winloss":0},{"id":42589424,"name":"637*5281","winloss":0},{"id":58807249,"name":"64*6*239","winloss":708},{"id":43578103,"name":"6580**2*","winloss":1569,"children":[{"id":65466039,"name":"64**8103","winloss":-818},{"id":58774330,"name":"66*0*77*","winloss":1532}]},{"id":80471573,"name":"67*6*1*0","winloss":-2231,"children":[{"id":78926128,"name":"6*588675","winloss":33}]},{"id":33996306,"name":"9*2*8*47","winloss":-8248}]},{"id":31726720,"name":"13*02684589","winloss":0},{"id":34970533,"name":"135433*0873","winloss":0},{"id":58925751,"name":"13632633*54","winloss":0},{"id":73158823,"name":"18*81516309","winloss":0},{"id":72801594,"name":"462**99*","winloss":-18308},{"id":63963127,"name":"5*004821","winloss":38},{"id":65084819,"name":"5493*687","winloss":0},{"id":68212106,"name":"6*6*85*0","winloss":-6477},{"id":69193832,"name":"60*67155","winloss":0,"children":[{"id":96937890,"name":"964*1266","winloss":0}]},{"id":46265313,"name":"60*901*5","winloss":146},{"id":22338815,"name":"607*3375","winloss":0},{"id":93724470,"name":"6082098*","winloss":0},{"id":12826294,"name":"6234*9**","winloss":-5858},{"id":81259441,"name":"68*61400","winloss":57},{"id":68108789,"name":"6935*9**","winloss":-8547},{"id":14474337,"name":"9*231**3","winloss":-5868},{"id":92311527,"name":"90279*95","winloss":0},{"id":31905990,"name":"9065**98","winloss":661},{"id":80255162,"name":"9324128*","winloss":0},{"id":84625725,"name":"97**9868","winloss":-346}]},{"id":33236583,"name":"**2*0015","winloss":3279,"children":[{"id":14390027,"name":"**50*209","winloss":-9569,"children":[{"id":32293926,"name":"*7637275","winloss":39},{"id":64045730,"name":"6648*324","winloss":0},{"id":64073833,"name":"6649*079","winloss":63},{"id":64236332,"name":"9*302890","winloss":0},{"id":40314620,"name":"9*803594","winloss":43},{"id":61236157,"name":"90969*37","winloss":0},{"id":39467335,"name":"98*05893","winloss":39}]},{"id":19861383,"name":"*2545092","winloss":0},{"id":80656829,"name":"4703***4","winloss":-2641},{"id":14546183,"name":"62**101*","winloss":-1580}]},{"id":86432986,"name":"**35923*","winloss":-20873,"children":[{"id":81749246,"name":"60*6*3*8","winloss":1269},{"id":55008378,"name":"64*87138","winloss":0},{"id":65740201,"name":"657*6052","winloss":43}]},{"id":78645396,"name":"**7214*6","winloss":-1831,"children":[{"id":53780009,"name":"'- Liping (Daisy)","winloss":-69410,"children":[{"id":94785874,"name":"5130856*","winloss":0},{"id":51644112,"name":"53*7**35","winloss":-79856},{"id":73075944,"name":"604*3098","winloss":0},{"id":60183304,"name":"934*711*","winloss":-300},{"id":32907017,"name":"'-黃桂芳","winloss":-14380}]},{"id":45455276,"name":"*1363*50","winloss":164},{"id":11385677,"name":"*3702334321","winloss":0,"children":[{"id":15238874,"name":"1866690*800","winloss":0},{"id":27323889,"name":"19*01705390","winloss":0}]},{"id":15225024,"name":"*75388*5","winloss":-360},{"id":17156400,"name":"602*2592","winloss":0},{"id":85097929,"name":"6419660*","winloss":0},{"id":98950623,"name":"655*007*","winloss":692,"children":[{"id":38406177,"name":"6028*243","winloss":0},{"id":35569791,"name":"655*0086","winloss":0}]},{"id":36332500,"name":"69*90860","winloss":0},{"id":58474021,"name":"9*520**3","winloss":-24562,"children":[{"id":17504419,"name":"*4429423","winloss":0},{"id":95046165,"name":"90555*25","winloss":0}]},{"id":11377867,"name":"913*3150","winloss":0},{"id":88748249,"name":"9340323*","winloss":0},{"id":17847131,"name":"937216*1","winloss":33},{"id":69990467,"name":"97588*45","winloss":0}]},{"id":86739137,"name":"*0884686","winloss":0},{"id":32653386,"name":"*2669779","winloss":36},{"id":54575642,"name":"*5*8107*","winloss":-7655},{"id":20764451,"name":"*6498631","winloss":0},{"id":75370524,"name":"*7878904","winloss":0},{"id":70853723,"name":"*9211668","winloss":24},{"id":68893867,"name":"~ Lina","winloss":-11460,"children":[{"id":67865173,"name":"*3484416","winloss":63,"children":[{"id":64661960,"name":"*7591280","winloss":0},{"id":22466184,"name":"6*183832","winloss":0},{"id":42294309,"name":"622664*7","winloss":0},{"id":57655433,"name":"929*4955","winloss":0,"children":[{"id":37557687,"name":"6806181*","winloss":0}]}]},{"id":83609094,"name":"1371429969*","winloss":0},{"id":77456168,"name":"6095*3**","winloss":-11764},{"id":48119277,"name":"6677294*","winloss":0,"children":[{"id":25859564,"name":"606129*6","winloss":0},{"id":73914505,"name":"67*78866","winloss":0},{"id":62975837,"name":"939*7386","winloss":0},{"id":18351452,"name":"9887632*","winloss":0}]},{"id":79903064,"name":"67915*28","winloss":0},{"id":82033954,"name":"8481294*","winloss":0}]},{"id":13406834,"name":"443702*4","winloss":0},{"id":84150200,"name":"5**1098*","winloss":-6360},{"id":49734067,"name":"5*1910*9","winloss":-430},{"id":11023957,"name":"5*669889","winloss":0},{"id":59309226,"name":"517477*6","winloss":0},{"id":22261158,"name":"52*69749","winloss":0},{"id":42685697,"name":"522***44","winloss":1869,"children":[{"id":78670767,"name":"91898*91","winloss":33},{"id":77423654,"name":"934009*2","winloss":0}]},{"id":94718184,"name":"524081*8","winloss":33,"children":[{"id":60839291,"name":"15386429*47","winloss":0},{"id":40509097,"name":"19977*74933","winloss":0}]},{"id":86958096,"name":"6**66073","winloss":365},{"id":53545499,"name":"6*04322*","winloss":324},{"id":64265127,"name":"6*1270**","winloss":-2763},{"id":50377633,"name":"6*23*68*","winloss":2240,"children":[{"id":98531512,"name":"516982*0","winloss":59},{"id":94057645,"name":"5317108*","winloss":0},{"id":43181200,"name":"6**86*26","winloss":-7911},{"id":13203407,"name":"6*319093","winloss":0},{"id":81349749,"name":"6*702467","winloss":33},{"id":76848101,"name":"60918*30","winloss":0},{"id":59156761,"name":"618036*2","winloss":0},{"id":14635974,"name":"619*6637","winloss":0},{"id":29108253,"name":"6992*734","winloss":0}]},{"id":68180459,"name":"609*785*","winloss":154},{"id":67537572,"name":"62**1725","winloss":335},{"id":24047600,"name":"630094*8","winloss":0},{"id":54377524,"name":"64*15656","winloss":0,"children":[{"id":20215586,"name":"6234646*","winloss":0},{"id":14269014,"name":"68*87353","winloss":0}]},{"id":14054212,"name":"657491*1","winloss":0},{"id":54892743,"name":"68*53*56","winloss":330,"children":[{"id":46630808,"name":"62*80821","winloss":79}]},{"id":62031761,"name":"9**43818","winloss":434,"children":[{"id":42210003,"name":"676541*3","winloss":0,"children":[{"id":54832255,"name":"*0846592","winloss":0,"children":[{"id":36585886,"name":"9833*293","winloss":0}]},{"id":28136781,"name":"987353*5","winloss":0}]}]},{"id":35950475,"name":"9*579022","winloss":20,"children":[{"id":33177130,"name":"6*866022","winloss":0}]},{"id":84604032,"name":"9*6*81*8","winloss":-2141,"children":[{"id":49936638,"name":"608902**","winloss":710},{"id":89307728,"name":"6942*886","winloss":23},{"id":38731715,"name":"948633*1","winloss":0}]},{"id":80955863,"name":"917**08*","winloss":19523},{"id":59208254,"name":"92*99578","winloss":0},{"id":75141328,"name":"923*5*76","winloss":395},{"id":82664108,"name":"949620*6","winloss":0,"children":[{"id":48087957,"name":"*2614858","winloss":0}]},{"id":41674733,"name":"9732**17","winloss":704},{"id":95346275,"name":"977*6*1*","winloss":-4388,"children":[{"id":31134272,"name":"*11891**","winloss":-1959},{"id":10316087,"name":"*7187991","winloss":59},{"id":86118699,"name":"5*111284","winloss":0},{"id":53847021,"name":"5*781253","winloss":0},{"id":75615130,"name":"64*65*26","winloss":280}]},{"id":62881312,"name":"98*4*67*","winloss":-10036,"children":[{"id":33760336,"name":"13*09641082","winloss":0},{"id":91828352,"name":"67*90902","winloss":20,"children":[{"id":55619128,"name":"6482*814","winloss":0},{"id":88175049,"name":"9183*598","winloss":0}]},{"id":97313462,"name":"975863*9","winloss":0}]},{"id":79883006,"name":"zh36*2*26@12*.com","winloss":2302,"children":[{"id":70334172,"name":"5*057326","winloss":0},{"id":10784606,"name":"531655**","winloss":298},{"id":46626098,"name":"562*18*8","winloss":668,"children":[{"id":20584285,"name":"51*07857","winloss":0},{"id":89625384,"name":"9*16955*","winloss":139},{"id":79491002,"name":"921*3130","winloss":33}]},{"id":46750509,"name":"6*746*1*","winloss":1508,"children":[{"id":67479032,"name":"9*0*4*13","winloss":-3303}]},{"id":61420414,"name":"8*931267","winloss":0}]}]}]},{"id":63687776,"name":"9*616064","winloss":0},{"id":52153388,"name":"Violeta","winloss":-40804,"children":[{"id":26296754,"name":"'- Tom's Dojo","winloss":-6087,"children":[{"id":48120776,"name":"*6529*43","winloss":332},{"id":58702964,"name":"65930*25","winloss":21},{"id":66443091,"name":"6957356*","winloss":33,"children":[{"id":21651812,"name":"6386955*","winloss":0}]},{"id":62139879,"name":"9433968*","winloss":0}]},{"id":16729085,"name":"**004722","winloss":-360},{"id":84915615,"name":"*0759987","winloss":30,"children":[{"id":67039434,"name":"94599*37","winloss":0}]},{"id":41131082,"name":"*0761891","winloss":20},{"id":65963453,"name":"*1344687","winloss":0},{"id":21856222,"name":"*286131*","winloss":-600},{"id":63795435,"name":"*289775*","winloss":-360},{"id":19052798,"name":"*29*8990","winloss":-360},{"id":63314652,"name":"*357685*","winloss":-900},{"id":51896150,"name":"*39*3962","winloss":-360},{"id":28524827,"name":"*437427*","winloss":-360},{"id":52633847,"name":"*5135*7*","winloss":-2100},{"id":15024592,"name":"*6188614","winloss":0},{"id":96747315,"name":"*6585396","winloss":0},{"id":83313488,"name":"*7184*87","winloss":-360},{"id":23002494,"name":"5**09843","winloss":-600},{"id":44059169,"name":"52825**6","winloss":-600},{"id":54996693,"name":"5328044*","winloss":0},{"id":17586912,"name":"55*13993","winloss":24,"children":[{"id":82269450,"name":"9140959*","winloss":0}]},{"id":33265886,"name":"554**258","winloss":-600},{"id":57959283,"name":"5593*838","winloss":0},{"id":62499105,"name":"56*41350","winloss":0},{"id":52293375,"name":"571*0210","winloss":0},{"id":10575556,"name":"6*01*153","winloss":682},{"id":18155669,"name":"6*348555","winloss":0},{"id":69106464,"name":"6*351*28","winloss":301,"children":[{"id":71045925,"name":"*6189*52","winloss":-600},{"id":44399568,"name":"5415*134","winloss":32},{"id":50634239,"name":"5513893*","winloss":0},{"id":95697601,"name":"568746*2","winloss":0},{"id":82193677,"name":"6171873*","winloss":36,"children":[{"id":29411425,"name":"958*7*24","winloss":-600},{"id":81060666,"name":"97*437*4","winloss":-600}]},{"id":24572277,"name":"92*21600","winloss":0,"children":[{"id":56242432,"name":"5723*77*","winloss":-600}]},{"id":13287170,"name":"938*7873","winloss":60},{"id":14427076,"name":"940886*3","winloss":63,"children":[{"id":90143008,"name":"975*3643","winloss":31}]},{"id":91485620,"name":"984**961","winloss":-580}]},{"id":64444290,"name":"6*53291*","winloss":-420},{"id":20269803,"name":"6*661801","winloss":0},{"id":95312180,"name":"6*866048","winloss":20},{"id":51602064,"name":"60*024*9","winloss":-360},{"id":19587080,"name":"601**925","winloss":-600},{"id":54898628,"name":"6096*788","winloss":0},{"id":73294035,"name":"61**2908","winloss":-360},{"id":76919394,"name":"611**034","winloss":-360},{"id":39303186,"name":"615**490","winloss":607},{"id":83594443,"name":"615750*5","winloss":0},{"id":20098482,"name":"6157504*","winloss":0},{"id":14587804,"name":"617*3336","winloss":0},{"id":13351861,"name":"622692*8","winloss":0},{"id":92102108,"name":"62333*69","winloss":0,"children":[{"id":56050031,"name":"9460318*","winloss":0}]},{"id":32071584,"name":"62348*54","winloss":0},{"id":39738452,"name":"63398*71","winloss":0},{"id":42823781,"name":"65090**8","winloss":-360},{"id":44564861,"name":"65138*26","winloss":0},{"id":28025625,"name":"653957*2","winloss":10},{"id":91787657,"name":"657815*3","winloss":0},{"id":90842406,"name":"66**5930","winloss":-600},{"id":21132503,"name":"666*0001","winloss":0},{"id":38598523,"name":"669*7466","winloss":16},{"id":46833845,"name":"670*54*8","winloss":-360},{"id":93430966,"name":"6899494*","winloss":0,"children":[{"id":68096037,"name":"689*8489","winloss":0}]},{"id":22610197,"name":"9**99850","winloss":-360},{"id":84344559,"name":"9*006*38","winloss":714,"children":[{"id":59082336,"name":"526883*0","winloss":0},{"id":22800792,"name":"684*2339","winloss":0}]},{"id":98306454,"name":"9*198706","winloss":0},{"id":77928886,"name":"9*334307","winloss":0},{"id":16218565,"name":"9*3717*2","winloss":-600},{"id":96477187,"name":"9*47897*","winloss":-360},{"id":37928510,"name":"9*770927","winloss":0},{"id":74343718,"name":"90*8*038","winloss":-360},{"id":68896945,"name":"902078*3","winloss":0},{"id":33611386,"name":"91451*68","winloss":0},{"id":72594086,"name":"919*3005","winloss":0},{"id":58247593,"name":"9213913*","winloss":0},{"id":29052972,"name":"92545*20","winloss":0},{"id":34659566,"name":"934*6132","winloss":0},{"id":50681861,"name":"93720*26","winloss":0},{"id":35791043,"name":"9379189*","winloss":0},{"id":38708285,"name":"94*46186","winloss":0},{"id":76016265,"name":"942405*4","winloss":43,"children":[{"id":97831129,"name":"*4765441","winloss":10},{"id":73964067,"name":"*5716236","winloss":0},{"id":73982855,"name":"5412*894","winloss":0}]},{"id":18076962,"name":"948251*7","winloss":0},{"id":47445547,"name":"957*0*12","winloss":-600},{"id":50852909,"name":"96*41120","winloss":0},{"id":11015271,"name":"962040*0","winloss":0},{"id":98618243,"name":"967*155*","winloss":-320},{"id":79476554,"name":"97119**1","winloss":-360}]}]},{"id":31699654,"name":"6*785527","winloss":0},{"id":99112258,"name":"6*789834","winloss":0},{"id":48723380,"name":"6*886986","winloss":38},{"id":43137479,"name":"61328***","winloss":-26487,"children":[{"id":27949471,"name":"**22*869","winloss":-5494}]},{"id":59867111,"name":"6185*879","winloss":0},{"id":34493286,"name":"620*0335","winloss":0},{"id":41432446,"name":"633519*6","winloss":0},{"id":44263521,"name":"6364654*","winloss":0},{"id":61889323,"name":"67074*33","winloss":0},{"id":35756124,"name":"6797776*","winloss":0},{"id":48280621,"name":"6829*658","winloss":0},{"id":52788676,"name":"6933*385","winloss":27},{"id":67106873,"name":"902829*3","winloss":0},{"id":79326521,"name":"9179*997","winloss":0},{"id":59604411,"name":"928*1947","winloss":23},{"id":11432253,"name":"9335712*","winloss":0},{"id":67991273,"name":"941*6981","winloss":0},{"id":10758277,"name":"9511*709","winloss":0},{"id":42529361,"name":"9521*175","winloss":0},{"id":30307013,"name":"9707301*","winloss":0},{"id":97974301,"name":"975*298*","winloss":124,"children":[{"id":33387089,"name":"5686203*","winloss":0}]},{"id":74852728,"name":"恵萍","winloss":-31550,"children":[{"id":51597958,"name":"**7957*8","winloss":-2800,"children":[{"id":40600263,"name":"*8927262","winloss":0},{"id":47653131,"name":"5340*918","winloss":0},{"id":66102554,"name":"552*0609","winloss":0},{"id":41250673,"name":"557*2586","winloss":0},{"id":31516710,"name":"562000*9","winloss":0},{"id":22115580,"name":"6*290332","winloss":0},{"id":46958218,"name":"68*27260","winloss":0},{"id":98560816,"name":"6894*427","winloss":0},{"id":20664313,"name":"6993*834","winloss":0},{"id":33460990,"name":"9*227762","winloss":0},{"id":48948401,"name":"9516*188","winloss":0}]},{"id":99925254,"name":"*5418366","winloss":0},{"id":49342854,"name":"5*443318","winloss":0},{"id":87647844,"name":"528*9343","winloss":0},{"id":47213858,"name":"55417*35","winloss":0},{"id":74551906,"name":"6*377270","winloss":0},{"id":80534663,"name":"6172*697","winloss":0},{"id":77715036,"name":"639*2932","winloss":0},{"id":40084597,"name":"9057*606","winloss":0},{"id":47219339,"name":"909*9034","winloss":0},{"id":46012261,"name":"92**040*","winloss":-19300},{"id":26657601,"name":"92450*73","winloss":0},{"id":99976885,"name":"957766*7","winloss":0},{"id":80666406,"name":"9879038*","winloss":0}]}]},{"id":91396311,"name":"玫姐","winloss":-338902,"children":[{"id":87672762,"name":"***82493","winloss":-8000},{"id":84539393,"name":"**290*38","winloss":-5900},{"id":86093058,"name":"*3056429","winloss":0},{"id":46004058,"name":"*5560791","winloss":0},{"id":70537399,"name":"*7300746","winloss":0},{"id":64135081,"name":"~ - Ying","winloss":-34801,"children":[{"id":99164519,"name":"'- Lam","winloss":830},{"id":58037433,"name":"'- Lam Mama","winloss":-867},{"id":11381279,"name":"**39*968","winloss":-3086},{"id":86428089,"name":"*0914028","winloss":13,"children":[{"id":20432794,"name":"6689*345","winloss":0}]},{"id":50765693,"name":"*4326397","winloss":23},{"id":85671165,"name":"~kwaiyiu1*61","winloss":30},{"id":36035894,"name":"5**77*83","winloss":1825,"children":[{"id":49210439,"name":"958*7473","winloss":0},{"id":36401722,"name":"'-玉","winloss":-13722,"children":[{"id":13905473,"name":"971*0708","winloss":0}]}]},{"id":51342142,"name":"6*749101","winloss":23},{"id":83552887,"name":"6017**39","winloss":698},{"id":21701451,"name":"61*45116","winloss":23},{"id":89429308,"name":"61*8046*","winloss":646},{"id":54679744,"name":"6400653*","winloss":23},{"id":73009804,"name":"643*6373","winloss":18},{"id":59213091,"name":"643767*2","winloss":18,"children":[{"id":74874837,"name":"6*543991","winloss":13}]},{"id":62550967,"name":"6700309*","winloss":23},{"id":88420089,"name":"9*788836","winloss":28},{"id":86074178,"name":"9*860711","winloss":0},{"id":11505436,"name":"920*0**9","winloss":-3703},{"id":18420279,"name":"9381*265","winloss":23,"children":[{"id":20542483,"name":"*0283258","winloss":0},{"id":96525544,"name":"6*438741","winloss":0},{"id":33433437,"name":"6531*653","winloss":0},{"id":64485066,"name":"9*125730","winloss":0}]},{"id":58949034,"name":"9519411*","winloss":23},{"id":63549407,"name":"960883*7","winloss":23},{"id":23908728,"name":"9721383*","winloss":23},{"id":61023635,"name":"'-kwaishing*7**","winloss":-14517}]},{"id":85438571,"name":"5**1*298","winloss":-2800},{"id":38898550,"name":"5*003364","winloss":0},{"id":74186375,"name":"5100*343","winloss":0},{"id":10594799,"name":"5192610*","winloss":0},{"id":87080396,"name":"560037*3","winloss":0},{"id":65278385,"name":"6*168232","winloss":0},{"id":38025828,"name":"6*2*9*68","winloss":2193,"children":[{"id":11645287,"name":"5*863801","winloss":89},{"id":89687623,"name":"5119*1*3","winloss":106,"children":[{"id":45069013,"name":"5133*808","winloss":76,"children":[{"id":12435543,"name":"6232334*","winloss":20,"children":[{"id":56464670,"name":"63*98987","winloss":71,"children":[{"id":92783346,"name":"980*8186","winloss":70}]},{"id":60244537,"name":"9731*358","winloss":70}]}]},{"id":21255671,"name":"9*706454","winloss":0}]},{"id":77876738,"name":"5281509*","winloss":94},{"id":17849772,"name":"541*3837","winloss":70},{"id":54802830,"name":"6*286*26","winloss":816},{"id":23805025,"name":"90996*54","winloss":79},{"id":82228959,"name":"9347*988","winloss":94}]},{"id":97343182,"name":"6*576308","winloss":0},{"id":17409543,"name":"602**09*","winloss":-9910},{"id":40684802,"name":"61**5289","winloss":783},{"id":17149727,"name":"61*13080","winloss":0,"children":[{"id":85322106,"name":"*8459142","winloss":0},{"id":30324910,"name":"*8915028","winloss":0},{"id":93295111,"name":"52427*58","winloss":0},{"id":42401550,"name":"6*378086","winloss":0},{"id":53332777,"name":"6312702*","winloss":0},{"id":29422634,"name":"660228*9","winloss":0},{"id":49310462,"name":"69232*18","winloss":0},{"id":47825341,"name":"9083*826","winloss":0},{"id":58826473,"name":"913970*1","winloss":0},{"id":49253128,"name":"9362*376","winloss":0},{"id":42252351,"name":"946261*7","winloss":0},{"id":86927681,"name":"9500834*","winloss":0},{"id":64911169,"name":"952*8888","winloss":0}]},{"id":70505288,"name":"62201*03","winloss":0},{"id":41466118,"name":"6233421*","winloss":0},{"id":77007657,"name":"64146*0*","winloss":-816,"children":[{"id":18461837,"name":"9*538916","winloss":0},{"id":60660224,"name":"9*91*167","winloss":767,"children":[{"id":91128390,"name":"68383*88","winloss":24},{"id":31934980,"name":"92367*24","winloss":0}]},{"id":34681151,"name":"'-素素","winloss":-6843}]},{"id":64697462,"name":"65*2*94*","winloss":-68441,"children":[{"id":87598355,"name":"'- Lai Mui Tang","winloss":-11227,"children":[{"id":39556621,"name":"615*2*85","winloss":110},{"id":35364674,"name":"6217*372","winloss":35,"children":[{"id":59114108,"name":"6589409*","winloss":0},{"id":47183035,"name":"9713*439","winloss":0}]},{"id":47167123,"name":"9*0*3168","winloss":118,"children":[{"id":93548733,"name":"*7928619","winloss":51},{"id":52949307,"name":"55*23684","winloss":11}]},{"id":45738332,"name":"9*394*87","winloss":-210,"children":[{"id":63754613,"name":"6*366*32","winloss":116},{"id":79242095,"name":"610*3268","winloss":11},{"id":12152739,"name":"61765*41","winloss":11},{"id":98626753,"name":"9*873591","winloss":16}]},{"id":78671774,"name":"94728*41","winloss":14},{"id":63997314,"name":"952477*3","winloss":0}]},{"id":43142790,"name":"'- Macy","winloss":-6373,"children":[{"id":73668729,"name":"*9*90526","winloss":220,"children":[{"id":88412467,"name":"67*39150","winloss":0}]},{"id":34881551,"name":"518368*6","winloss":0},{"id":78382819,"name":"54*16872","winloss":0},{"id":27287207,"name":"548*8226","winloss":37,"children":[{"id":85416101,"name":"*3666581","winloss":0}]},{"id":58259108,"name":"6*1*891*","winloss":-2298},{"id":13628099,"name":"62*09131","winloss":0},{"id":74706787,"name":"902*9228","winloss":47}]},{"id":96000319,"name":"*0177358","winloss":0},{"id":91833695,"name":"*572*233","winloss":115,"children":[{"id":20127201,"name":"54*90213","winloss":11},{"id":96292358,"name":"596*8459","winloss":11},{"id":30307411,"name":"9389853*","winloss":11},{"id":45308540,"name":"9780617*","winloss":11}]},{"id":24057132,"name":"*620108*","winloss":111,"children":[{"id":53918093,"name":"*2231933","winloss":38},{"id":74794828,"name":"55*40408","winloss":28},{"id":31773257,"name":"623648*1","winloss":39},{"id":58730324,"name":"6850162*","winloss":38}]},{"id":70292413,"name":"*6596060","winloss":17},{"id":62405396,"name":"*8406889","winloss":23},{"id":85602259,"name":"*9*30603","winloss":-430},{"id":35571503,"name":"~ 😊 (**)","winloss":-8226},{"id":59211712,"name":"~+852 ***9 1885","winloss":5240,"children":[{"id":85477587,"name":"**512983","winloss":110},{"id":91256560,"name":"**555*86","winloss":-1273},{"id":35784809,"name":"*3*10*67","winloss":2870},{"id":41833555,"name":"*44**252","winloss":-1962},{"id":23990818,"name":"5*121*95","winloss":128},{"id":56941254,"name":"5*29*67*","winloss":-15155,"children":[{"id":93056959,"name":"56*60*0*","winloss":1646}]},{"id":78905203,"name":"52*608*2","winloss":120},{"id":67799940,"name":"557*5356","winloss":0},{"id":52847073,"name":"637571*3","winloss":35},{"id":65022457,"name":"64**4913","winloss":160},{"id":78930617,"name":"648**0*0","winloss":-4100},{"id":53251980,"name":"84*3*685","winloss":780},{"id":24675164,"name":"94*5*371","winloss":130},{"id":75119636,"name":"'-阿龍","winloss":-5183}]},{"id":39078921,"name":"~😊 雅璇 ➕ Ivy Yu✨","winloss":-6197,"children":[{"id":50303910,"name":"*4709568","winloss":16},{"id":54870545,"name":"*8720936","winloss":25},{"id":46494279,"name":"5*235781","winloss":56},{"id":71443748,"name":"5*812240","winloss":20},{"id":54155822,"name":"60*03*67","winloss":-430},{"id":44604482,"name":"648780*8","winloss":0},{"id":38078687,"name":"673**851","winloss":-430},{"id":60307744,"name":"9*8573*2","winloss":-430},{"id":89880080,"name":"9131641*","winloss":0},{"id":11018715,"name":"9792334*","winloss":16},{"id":92123922,"name":"一張","winloss":156,"children":[{"id":45151816,"name":"*1805582","winloss":19},{"id":64220720,"name":"539*9672","winloss":40},{"id":60454473,"name":"6561752*","winloss":30},{"id":26897255,"name":"912*9286","winloss":35},{"id":42191977,"name":"979*66*9","winloss":-430}]}]},{"id":95488828,"name":"5*79*377","winloss":121,"children":[{"id":44264999,"name":"474*5988","winloss":24},{"id":66213994,"name":"5*266171","winloss":79},{"id":81008357,"name":"671*18*0","winloss":108},{"id":69497208,"name":"9589473*","winloss":54}]},{"id":70358056,"name":"51*30142","winloss":0},{"id":58590195,"name":"5398195*","winloss":0},{"id":72540854,"name":"55*17218","winloss":29},{"id":95195442,"name":"57139*68","winloss":0},{"id":59669406,"name":"6*711727","winloss":0},{"id":34523456,"name":"61*26663","winloss":0},{"id":76582673,"name":"6154390*","winloss":29},{"id":11037081,"name":"6173*303","winloss":0},{"id":25876387,"name":"623638**","winloss":-247},{"id":16455787,"name":"63*83945","winloss":0},{"id":94999676,"name":"6490*213","winloss":26},{"id":30169147,"name":"6597710*","winloss":0},{"id":56836915,"name":"667**133","winloss":-430},{"id":31515854,"name":"6672933*","winloss":0},{"id":55475901,"name":"66813*82","winloss":0},{"id":39466492,"name":"6757*204","winloss":0},{"id":66926301,"name":"680**22*","winloss":1394,"children":[{"id":30337864,"name":"*6622233","winloss":98},{"id":24069377,"name":"5*9653*9","winloss":103},{"id":70035600,"name":"51*29*32","winloss":114},{"id":41993617,"name":"666*22*8","winloss":108},{"id":54978754,"name":"9*93*218","winloss":103}]},{"id":30869188,"name":"688*6397","winloss":24},{"id":84727715,"name":"6939339*","winloss":0},{"id":72545862,"name":"6999*618","winloss":0,"children":[{"id":63974848,"name":"98*32988","winloss":0}]},{"id":68745454,"name":"9**598*1","winloss":-12936,"children":[{"id":36667337,"name":"*081*955","winloss":-430},{"id":25430241,"name":"*4810982","winloss":0},{"id":90547661,"name":"623**21*","winloss":-9850},{"id":71565614,"name":"653*6696","winloss":0}]},{"id":85052616,"name":"9*0*9832","winloss":141},{"id":69836881,"name":"9*129645","winloss":0},{"id":91507079,"name":"90**4668","winloss":177},{"id":97409052,"name":"905*1646","winloss":0},{"id":99790347,"name":"924*37*5","winloss":357,"children":[{"id":89293074,"name":"*3186572","winloss":0}]},{"id":61767185,"name":"92778*98","winloss":0,"children":[{"id":18415267,"name":"46382*74","winloss":0},{"id":81802997,"name":"53*66963","winloss":0}]},{"id":13883633,"name":"9370843*","winloss":85,"children":[{"id":82149143,"name":"6845346*","winloss":0}]},{"id":91434795,"name":"9393***3","winloss":-1128,"children":[{"id":14602554,"name":"6*390393","winloss":0},{"id":32756002,"name":"68429*92","winloss":0}]},{"id":13061001,"name":"947**3*1","winloss":2274},{"id":54369224,"name":"95**23*7","winloss":-45127,"children":[{"id":69889828,"name":"61*85692","winloss":0},{"id":57826179,"name":"91425**6","winloss":-430}]},{"id":20039752,"name":"952596*9","winloss":33},{"id":54609706,"name":"9659*071","winloss":45},{"id":22739339,"name":"9665*561","winloss":0},{"id":13508687,"name":"978*8975","winloss":0},{"id":51289846,"name":"Mandy","winloss":-4478,"children":[{"id":27576690,"name":"'- Nicole Chu","winloss":-20000},{"id":73716446,"name":"*3702410312","winloss":0},{"id":61166424,"name":"1370*410313","winloss":0},{"id":62291792,"name":"'-Hilda","winloss":-14350}]},{"id":76822994,"name":"xiabiqing13*@gmail.com","winloss":0},{"id":74067576,"name":"'-劉秀麗","winloss":-25266,"children":[{"id":60988879,"name":"6537*045","winloss":18}]},{"id":36893428,"name":"'-李麗麗","winloss":2267,"children":[{"id":63194902,"name":"*4153499","winloss":33},{"id":58919034,"name":"*6080208","winloss":68},{"id":40866441,"name":"*6677451","winloss":74},{"id":14738036,"name":"~ 😊","winloss":1071},{"id":93736981,"name":"6*909695","winloss":97},{"id":28480082,"name":"60*65806","winloss":78},{"id":11140278,"name":"67080*22","winloss":47},{"id":69743959,"name":"840218*1","winloss":0},{"id":83503149,"name":"9*835707","winloss":74},{"id":39379704,"name":"9163*505","winloss":57},{"id":33819122,"name":"9224*886","winloss":22},{"id":60303432,"name":"93*13443","winloss":0},{"id":53738724,"name":"96181*31","winloss":52},{"id":62093035,"name":"9830985*","winloss":24}]}]},{"id":50900110,"name":"6538*969","winloss":0},{"id":73820541,"name":"654829*8","winloss":0},{"id":36482420,"name":"66*21667","winloss":0},{"id":12602885,"name":"80*06245","winloss":0},{"id":27202286,"name":"9*53*86*","winloss":-3202},{"id":45291805,"name":"91085*3*","winloss":200,"children":[{"id":12516346,"name":"6898815*","winloss":0},{"id":77499096,"name":"6899*519","winloss":0,"children":[{"id":36938732,"name":"9156863*","winloss":0}]},{"id":64269954,"name":"905036*6","winloss":0}]},{"id":32344807,"name":"913*5472","winloss":0},{"id":91002574,"name":"91917**2","winloss":387,"children":[{"id":45180324,"name":"253479686*@qq.com","winloss":0},{"id":67336619,"name":"5*178181","winloss":0},{"id":96795166,"name":"5*875028","winloss":0},{"id":50950025,"name":"591*0*70","winloss":-430},{"id":60969912,"name":"6*186318","winloss":53},{"id":78424735,"name":"60974*02","winloss":0},{"id":92822492,"name":"65428*88","winloss":0,"children":[{"id":71554471,"name":"6*672262","winloss":0}]},{"id":37417316,"name":"6661*783","winloss":0},{"id":41722527,"name":"676412*1","winloss":0},{"id":12778911,"name":"923*3187","winloss":0},{"id":53362197,"name":"97*72341","winloss":0},{"id":84463186,"name":"973918*3","winloss":0},{"id":42833924,"name":"9863*538","winloss":0},{"id":59167154,"name":"'-Ken築AI 創富教練","winloss":0,"children":[{"id":81387598,"name":"9821*298","winloss":0}]}]},{"id":80530111,"name":"92*55889","winloss":19},{"id":53628326,"name":"9255*197","winloss":0},{"id":83743572,"name":"939*5**7","winloss":-43600},{"id":58512886,"name":"962*7865","winloss":0},{"id":84197119,"name":"971*8021","winloss":0},{"id":43403441,"name":"975506*5","winloss":15},{"id":94253372,"name":"一朱佐強","winloss":-10654,"children":[{"id":86515258,"name":"*3289995","winloss":0},{"id":85612476,"name":"5**51981","winloss":360},{"id":34962021,"name":"6070**65","winloss":330},{"id":86602285,"name":"622549*2","winloss":0},{"id":26436615,"name":"63*44483","winloss":0},{"id":81313157,"name":"65753*69","winloss":0},{"id":80350045,"name":"9*27*940","winloss":365,"children":[{"id":98146902,"name":"5*442*27","winloss":-300},{"id":37966619,"name":"5597*87*","winloss":363},{"id":65301088,"name":"66*12214","winloss":0},{"id":67669846,"name":"84*74963","winloss":0},{"id":98956722,"name":"9*265259","winloss":48},{"id":24619113,"name":"986163*3","winloss":44}]},{"id":11463476,"name":"97***479","winloss":-1740}]},{"id":34058346,"name":"一莎莎","winloss":-169673,"children":[{"id":90569042,"name":"'- awatang","winloss":-10072},{"id":49614342,"name":"**867174","winloss":674},{"id":52885477,"name":"5**6*266","winloss":-5590},{"id":66217581,"name":"5*381380","winloss":0,"children":[{"id":65883412,"name":"9248815*","winloss":0}]},{"id":83599290,"name":"510*8417","winloss":0},{"id":87948680,"name":"544539*2","winloss":0},{"id":74925188,"name":"549*5879","winloss":0},{"id":99128372,"name":"55*79209","winloss":0},{"id":77228641,"name":"6*382330","winloss":0},{"id":48336884,"name":"63*49*74","winloss":335},{"id":78898040,"name":"670*1133","winloss":28},{"id":74864505,"name":"6703*114","winloss":0},{"id":99870668,"name":"68*58882","winloss":0},{"id":33446844,"name":"6933*800","winloss":0},{"id":81999775,"name":"9*469933","winloss":0},{"id":20085632,"name":"9*698518","winloss":0},{"id":71788466,"name":"93306*05","winloss":0},{"id":62426360,"name":"9520882*","winloss":0},{"id":98880239,"name":"96840*89","winloss":0},{"id":33223490,"name":"97*11986","winloss":0},{"id":59632277,"name":"974680*9","winloss":0},{"id":74903397,"name":"一李舟","winloss":-3888}]},{"id":90029499,"name":"'-佛花-悦席成雙","winloss":-2200,"children":[{"id":16495449,"name":"'- 凡","winloss":23,"children":[{"id":98149045,"name":"*3626427","winloss":18},{"id":72714760,"name":"*94*8287","winloss":-430},{"id":52867209,"name":"9581924*","winloss":18}]},{"id":28445622,"name":"6*965501","winloss":35}]},{"id":17195039,"name":"'-孫彩勤","winloss":-3359,"children":[{"id":31943559,"name":"9*742541","winloss":0},{"id":99651221,"name":"91250*03","winloss":0},{"id":58879492,"name":"9208*06*","winloss":741},{"id":80515612,"name":"9874371*","winloss":0}]},{"id":21362934,"name":"'-會彩金","winloss":-14699,"children":[{"id":17039010,"name":"**1*9163","winloss":-2187},{"id":92356619,"name":"*2078467","winloss":13},{"id":58985871,"name":"*2237*49","winloss":165},{"id":67641372,"name":"*9*97397","winloss":163},{"id":76623463,"name":"59*7*379","winloss":168},{"id":52282349,"name":"6*80123*","winloss":167},{"id":15952283,"name":"60***219","winloss":-10610,"children":[{"id":33249918,"name":"'-英子","winloss":-6400}]},{"id":31812075,"name":"64**04*3","winloss":-3670},{"id":82241538,"name":"699*969*","winloss":163},{"id":63757289,"name":"6993572*","winloss":18},{"id":68940578,"name":"'-學進教育中心","winloss":-9682},{"id":86514501,"name":"'-蘭子","winloss":-5887}]},{"id":14516820,"name":"'-染雨花藍**Fiona","winloss":-33598,"children":[{"id":80183184,"name":"**5611*3","winloss":-14527,"children":[{"id":99656226,"name":"65002*44","winloss":0}]},{"id":64508523,"name":"*30008**","winloss":-4706},{"id":37214691,"name":"*389477*","winloss":194},{"id":77133346,"name":"5613708*","winloss":13},{"id":49162225,"name":"623901*0","winloss":18},{"id":35785123,"name":"9*14*88*","winloss":-30452,"children":[{"id":36331203,"name":"5114*378","winloss":0}]},{"id":28951224,"name":"9*29020*","winloss":187},{"id":35851973,"name":"90*8*822","winloss":-430},{"id":71867198,"name":"90182*82","winloss":18},{"id":76976459,"name":"9205010*","winloss":18},{"id":87805798,"name":"934927*7","winloss":20},{"id":12888662,"name":"'-真貞 (郎))","winloss":-11195,"children":[{"id":42438918,"name":"*0504622","winloss":0},{"id":93974463,"name":"*0948385","winloss":90},{"id":20298327,"name":"~ 😊","winloss":-79311,"children":[{"id":49317943,"name":"'- Shirley Hon","winloss":-17530,"children":[{"id":70504083,"name":"95360**7","winloss":-430}]},{"id":77490398,"name":"*1003519","winloss":32},{"id":37381290,"name":"*1206385","winloss":36},{"id":83951699,"name":"*14*01*8","winloss":-10016},{"id":76347395,"name":"*226*26*","winloss":-9440},{"id":97672219,"name":"*8374716","winloss":0},{"id":24362354,"name":"5*12*885","winloss":-430},{"id":29004454,"name":"6*213128","winloss":0},{"id":73816008,"name":"6*607*3*","winloss":-1540},{"id":96475641,"name":"60*30122","winloss":50},{"id":43138678,"name":"68513*07","winloss":0},{"id":49578247,"name":"9156*637","winloss":0},{"id":52144233,"name":"92064***","winloss":-3557},{"id":59617933,"name":"92078*88","winloss":0},{"id":95585566,"name":"96*84446","winloss":0},{"id":17424000,"name":"981*2*0*","winloss":-6505}]},{"id":48721658,"name":"53923*80","winloss":61,"children":[{"id":43133604,"name":"6823793*","winloss":28}]},{"id":33703809,"name":"6**8*721","winloss":-6521,"children":[{"id":77655788,"name":"*93829*1","winloss":201},{"id":80181735,"name":"619391*5","winloss":27}]},{"id":13196520,"name":"6*721811","winloss":0},{"id":15655950,"name":"60*8*60*","winloss":-6455},{"id":51493710,"name":"6919**68","winloss":-430},{"id":85565854,"name":"6931900*","winloss":28},{"id":47187991,"name":"9*0399*1","winloss":165},{"id":63551435,"name":"913709*8","winloss":84,"children":[{"id":37196462,"name":"5199*128","winloss":0},{"id":37510775,"name":"9403*494","winloss":0}]},{"id":44388213,"name":"9730234*","winloss":0},{"id":34719304,"name":"9899*604","winloss":0}]}]},{"id":80612304,"name":"'-郭杏榕","winloss":-13000,"children":[{"id":99888918,"name":"62*44005","winloss":13}]}]},{"id":90126524,"name":"貞貞","winloss":-551192,"children":[{"id":65600569,"name":"'- Boi","winloss":-139738,"children":[{"id":89065424,"name":"'- Jessie","winloss":-17041},{"id":22188878,"name":"**9634*1","winloss":-12907},{"id":43532174,"name":"*221070*","winloss":-430},{"id":18100220,"name":"*6993096","winloss":23},{"id":27424545,"name":"*8*76*87","winloss":-6300},{"id":32412547,"name":"5*457**8","winloss":6808,"children":[{"id":82933533,"name":"59785*69","winloss":0},{"id":77984998,"name":"665577*8","winloss":0},{"id":49647663,"name":"9*85*282","winloss":760}]},{"id":94872157,"name":"518**19*","winloss":-4727},{"id":91277321,"name":"6512*869","winloss":0},{"id":53963550,"name":"652*6768","winloss":23},{"id":28061562,"name":"664*7*62","winloss":723},{"id":55281695,"name":"680*83**","winloss":-2200},{"id":36621450,"name":"98*6**73","winloss":8747},{"id":59348543,"name":"9838*547","winloss":23}]},{"id":53065505,"name":"'- Candy Chung","winloss":-18890,"children":[{"id":31525106,"name":"**3*3663","winloss":-9365},{"id":43175743,"name":"6**7271*","winloss":-16508},{"id":50552537,"name":"628*819*","winloss":813},{"id":70454482,"name":"67*52*00","winloss":788},{"id":71115318,"name":"98086*1*","winloss":828}]},{"id":32309644,"name":"***46861","winloss":2437,"children":[{"id":56523918,"name":"**35859*","winloss":-6379,"children":[{"id":50516736,"name":"*1987362","winloss":0},{"id":38736739,"name":"131434423*3","winloss":53},{"id":52719370,"name":"1371*184629","winloss":38},{"id":78136263,"name":"137148127**","winloss":266},{"id":73536646,"name":"13727*87083","winloss":38},{"id":26769096,"name":"13728*95987","winloss":33},{"id":29019297,"name":"1392214*865","winloss":73,"children":[{"id":61380912,"name":"1372885*825","winloss":43}]},{"id":10707838,"name":"159894*4923","winloss":38},{"id":45080463,"name":"61*290*7","winloss":146,"children":[{"id":17105258,"name":"5*81*734","winloss":738,"children":[{"id":30748588,"name":"*5474758","winloss":43}]}]},{"id":76829079,"name":"674*4045","winloss":28,"children":[{"id":91141389,"name":"*3757375","winloss":0},{"id":90322591,"name":"6097*281","winloss":0},{"id":11316400,"name":"94*48698","winloss":0},{"id":71834970,"name":"9602*769","winloss":23},{"id":45643853,"name":"982*3211","winloss":0}]},{"id":80159518,"name":"8**42*72","winloss":-1994,"children":[{"id":99755178,"name":"13510612*89","winloss":73}]},{"id":66193768,"name":"921*27*6","winloss":465},{"id":48528115,"name":"948805*0","winloss":35,"children":[{"id":76732678,"name":"*3770598","winloss":43}]}]},{"id":76676005,"name":"**382311","winloss":410},{"id":56138720,"name":"*3529878","winloss":70},{"id":11012098,"name":"*3786905","winloss":0},{"id":84031555,"name":"*769*480","winloss":144},{"id":75800624,"name":"561*872*","winloss":338},{"id":91272957,"name":"6*242519","winloss":18},{"id":60420051,"name":"6*560358","winloss":60},{"id":68826070,"name":"619835*2","winloss":48},{"id":64256151,"name":"64*83669","winloss":0},{"id":51422781,"name":"647*5168","winloss":13},{"id":42312839,"name":"6588*8*4","winloss":720},{"id":46618704,"name":"6999837*","winloss":75},{"id":25888860,"name":"92*85632","winloss":73},{"id":99034077,"name":"920395*7","winloss":28,"children":[{"id":91598878,"name":"84829*18","winloss":0}]},{"id":21249757,"name":"92266*33","winloss":0},{"id":72970064,"name":"96*03234","winloss":0},{"id":76957500,"name":"978*7220","winloss":38}]},{"id":39038340,"name":"**173180","winloss":758},{"id":89222583,"name":"**4*8495","winloss":1178},{"id":36128426,"name":"**48652*","winloss":1183},{"id":91629184,"name":"**8932*9","winloss":5057},{"id":37926258,"name":"**9834*5","winloss":5101},{"id":96246656,"name":"*08**282","winloss":4444,"children":[{"id":23047015,"name":"9*2657**","winloss":4199}]},{"id":44983031,"name":"*3*16*27","winloss":1130,"children":[{"id":74998328,"name":"9*42**54","winloss":-1715},{"id":34934380,"name":"9*9*9207","winloss":330,"children":[{"id":12230145,"name":"593549*3","winloss":0,"children":[{"id":88694360,"name":"*4865134","winloss":0}]}]}]},{"id":18800359,"name":"*353*1751*1","winloss":9014,"children":[{"id":20288035,"name":"*72862**","winloss":4781},{"id":53467282,"name":"51*4*99*","winloss":-7737},{"id":86028346,"name":"6945412*","winloss":0}]},{"id":68140302,"name":"*4**8523","winloss":6340},{"id":74222248,"name":"*48**871","winloss":4162,"children":[{"id":97164879,"name":"~ Chi","winloss":-61989,"children":[{"id":74613163,"name":"**7*0331","winloss":5956,"children":[{"id":55244460,"name":"**429935","winloss":879},{"id":38935496,"name":"*5997947","winloss":65},{"id":91215708,"name":"*6268*61","winloss":723},{"id":76445278,"name":"*7912196","winloss":0},{"id":28753476,"name":"*9067868","winloss":40},{"id":20899966,"name":"467*1*24","winloss":405},{"id":82254585,"name":"46735*4*","winloss":650},{"id":59019655,"name":"471**896","winloss":560},{"id":25409234,"name":"4713*049","winloss":40},{"id":27039618,"name":"51*29907","winloss":85},{"id":72814305,"name":"5182171*","winloss":50},{"id":31766275,"name":"52844*98","winloss":35},{"id":63886246,"name":"5431587*","winloss":50},{"id":58993078,"name":"570*82**","winloss":5898,"children":[{"id":41429565,"name":"*1382*66","winloss":526},{"id":33175213,"name":"51*28884","winloss":40},{"id":67853848,"name":"5142990*","winloss":40},{"id":30813764,"name":"552051*7","winloss":40},{"id":94685893,"name":"557*5883","winloss":40},{"id":42733884,"name":"9**90773","winloss":536},{"id":47414038,"name":"90*6123*","winloss":445,"children":[{"id":51634305,"name":"5362**72","winloss":688,"children":[{"id":96011370,"name":"**631*21","winloss":10978},{"id":65515100,"name":"6**1*510","winloss":13391},{"id":50505082,"name":"617304*5","winloss":0}]}]}]},{"id":96066679,"name":"5725*326","winloss":40},{"id":29688078,"name":"578*0178","winloss":35},{"id":37674176,"name":"6**62076","winloss":581},{"id":33421708,"name":"623**986","winloss":151},{"id":70263093,"name":"658*6*85","winloss":949},{"id":50650422,"name":"9**83441","winloss":581},{"id":75281689,"name":"9*571063","winloss":55},{"id":14712314,"name":"90859*40","winloss":35},{"id":83298118,"name":"964420**","winloss":468}]},{"id":35109154,"name":"*1*16*41","winloss":1877},{"id":14064526,"name":"5*986822","winloss":50},{"id":59430740,"name":"55116*26","winloss":40},{"id":49693246,"name":"59974*74","winloss":50},{"id":75531086,"name":"6*727676","winloss":50},{"id":40040983,"name":"6171693*","winloss":0},{"id":88327401,"name":"6332*856","winloss":0},{"id":45953691,"name":"6744*483","winloss":40},{"id":43579874,"name":"69*96166","winloss":45},{"id":72759135,"name":"8*819314","winloss":29,"children":[{"id":86974494,"name":"528*4078","winloss":85},{"id":53670891,"name":"62491*96","winloss":65}]},{"id":79427884,"name":"9*371101","winloss":0},{"id":11119155,"name":"907984*8","winloss":0},{"id":58449203,"name":"97858*78","winloss":45},{"id":50800092,"name":"9815*209","winloss":0}]}]},{"id":24999113,"name":"5***2131","winloss":1271},{"id":80115720,"name":"5*295338","winloss":39},{"id":44861868,"name":"51*87430","winloss":23},{"id":65054972,"name":"5113*8**","winloss":1681},{"id":79730265,"name":"5115898*","winloss":30},{"id":85931531,"name":"59186*1*","winloss":105,"children":[{"id":97311471,"name":"6*808591","winloss":0}]},{"id":30796025,"name":"597*4318","winloss":50},{"id":65600558,"name":"6*710993","winloss":32,"children":[{"id":93264922,"name":"524*2364","winloss":0},{"id":14020687,"name":"6620*95*","winloss":127},{"id":33953525,"name":"968496*9","winloss":48}]},{"id":75823700,"name":"6076*731","winloss":24},{"id":53926275,"name":"6097*69*","winloss":435},{"id":28117173,"name":"64*14696","winloss":18},{"id":47977396,"name":"6478*82*","winloss":845},{"id":63954576,"name":"69*2*02*","winloss":27349,"children":[{"id":13032153,"name":"55*01439","winloss":0}]},{"id":11853542,"name":"694*8194","winloss":23},{"id":40666200,"name":"9*47586*","winloss":683},{"id":14438643,"name":"9*82*77*","winloss":1510},{"id":35313926,"name":"9*9*177*","winloss":-37468,"children":[{"id":63765139,"name":"931*3*35","winloss":-800},{"id":75139523,"name":"938*745*","winloss":-800}]},{"id":89160489,"name":"9*9101**","winloss":3210},{"id":66709464,"name":"9121*574","winloss":0},{"id":34116469,"name":"92*8777*","winloss":425},{"id":32085490,"name":"922242*5","winloss":40},{"id":45139725,"name":"93*6*655","winloss":147,"children":[{"id":18767830,"name":"*0492310","winloss":0},{"id":79312864,"name":"*535831*","winloss":-484},{"id":37542854,"name":"51*89779","winloss":0},{"id":68891369,"name":"5211*001","winloss":0},{"id":88658740,"name":"605*6726","winloss":0},{"id":48098442,"name":"61553*67","winloss":0},{"id":16206324,"name":"63*18250","winloss":0},{"id":65315290,"name":"9185**20","winloss":-163,"children":[{"id":35108239,"name":"6*02*878","winloss":-230},{"id":22379344,"name":"91*5*180","winloss":142}]},{"id":10863730,"name":"davidkwliu@gmail.com","winloss":0}]},{"id":56279591,"name":"93198*91","winloss":30},{"id":61590890,"name":"94415*23","winloss":40},{"id":41578523,"name":"947**8*0","winloss":4168},{"id":28208638,"name":"96**561*","winloss":3901},{"id":57752442,"name":"96*431**","winloss":1888},{"id":83162612,"name":"96*6**57","winloss":-50827,"children":[{"id":34801052,"name":"**10*738","winloss":-13750,"children":[{"id":80177446,"name":"9**909*8","winloss":-3900},{"id":18073628,"name":"91883***","winloss":-2200,"children":[{"id":89273469,"name":"9**50*02","winloss":-8500},{"id":22377465,"name":"9634039*","winloss":0}]},{"id":10699932,"name":"9807214*","winloss":18}]},{"id":95535758,"name":"**93198*","winloss":-1555},{"id":59532766,"name":"*09041*1","winloss":140},{"id":86188756,"name":"*1441413","winloss":23},{"id":90137384,"name":"*36549**","winloss":-11014},{"id":69018783,"name":"*945413*","winloss":-231,"children":[{"id":93136562,"name":"5623115*","winloss":0}]},{"id":61780807,"name":"5*055968","winloss":0},{"id":22142245,"name":"5*33549*","winloss":125},{"id":26070491,"name":"5*4786**","winloss":-2350},{"id":46002933,"name":"51*2**86","winloss":-21323},{"id":26668242,"name":"52**6539","winloss":-797,"children":[{"id":38770095,"name":"*813*875","winloss":125,"children":[{"id":66846120,"name":"6*335813","winloss":18}]},{"id":30741020,"name":"5392715*","winloss":0},{"id":19533119,"name":"54*2042*","winloss":145}]},{"id":39560010,"name":"520**7*6","winloss":-13395},{"id":27546086,"name":"6**714*9","winloss":-11031},{"id":46763105,"name":"6*4*4393","winloss":190},{"id":87004706,"name":"6*78**32","winloss":-14521},{"id":16266557,"name":"6236*1**","winloss":-2710},{"id":61554153,"name":"63**718*","winloss":-9801,"children":[{"id":12079667,"name":"**061003","winloss":-216},{"id":53833896,"name":"**179298","winloss":-216},{"id":90703624,"name":"*285869*","winloss":158},{"id":49410523,"name":"*5110*17","winloss":-287},{"id":93966733,"name":"51*5*68*","winloss":-2010},{"id":61506343,"name":"551*3737","winloss":40},{"id":99733070,"name":"57*34**9","winloss":-1540},{"id":68561333,"name":"6**98141","winloss":-301},{"id":37484957,"name":"6*57*866","winloss":170,"children":[{"id":56236895,"name":"66*792*2","winloss":145}]},{"id":58286537,"name":"6*67*950","winloss":-271},{"id":42472918,"name":"6038*3*9","winloss":-212},{"id":19619524,"name":"612867*4","winloss":0},{"id":51809054,"name":"622*2735","winloss":33},{"id":99117057,"name":"665*358*","winloss":825},{"id":37039902,"name":"668*00*1","winloss":-215},{"id":57188910,"name":"682*647*","winloss":-191},{"id":71051053,"name":"9*8*9*89","winloss":-10616,"children":[{"id":15878185,"name":"*012*171","winloss":-430},{"id":12451665,"name":"*5388015","winloss":23},{"id":42102363,"name":"6203161*","winloss":18},{"id":85374847,"name":"634*6248","winloss":18},{"id":28228872,"name":"9*261799","winloss":18},{"id":27624724,"name":"950633*5","winloss":18},{"id":15104912,"name":"9579*278","winloss":40},{"id":19075006,"name":"960*6075","winloss":23},{"id":58855315,"name":"9600*58*","winloss":-281},{"id":66056111,"name":"9792*833","winloss":35,"children":[{"id":76043472,"name":"9885*739","winloss":0}]},{"id":51040243,"name":"98*88915","winloss":18}]},{"id":25835553,"name":"902*4279","winloss":18},{"id":34618097,"name":"91**03*8","winloss":-8298,"children":[{"id":84985099,"name":"*5878820","winloss":38},{"id":19512822,"name":"5*779399","winloss":31,"children":[{"id":30348564,"name":"9132256*","winloss":28}]},{"id":56108899,"name":"5*889376","winloss":33,"children":[{"id":28719637,"name":"*4544308","winloss":0},{"id":65939206,"name":"*7281472","winloss":0,"children":[{"id":75605775,"name":"6*703470","winloss":0},{"id":94621484,"name":"98*81198","winloss":0}]},{"id":50630005,"name":"13*60161610","winloss":0},{"id":20166642,"name":"132*5483588","winloss":0},{"id":45365029,"name":"136209*5882","winloss":0},{"id":77965870,"name":"184755460*3","winloss":0},{"id":33832765,"name":"5362*681","winloss":0},{"id":61236647,"name":"6993*923","winloss":0},{"id":35959002,"name":"93*54438","winloss":0},{"id":67598052,"name":"966*3849","winloss":0,"children":[{"id":25357839,"name":"916935*8","winloss":0}]}]},{"id":65713902,"name":"937*5828","winloss":36,"children":[{"id":30647280,"name":"*7772862","winloss":43},{"id":99951082,"name":"54*83034","winloss":58,"children":[{"id":33362320,"name":"922285*4","winloss":0}]},{"id":23584162,"name":"618834*1","winloss":43},{"id":11427381,"name":"94*02484","winloss":55}]},{"id":23999209,"name":"941**519","winloss":185,"children":[{"id":22214711,"name":"9206066*","winloss":0}]}]},{"id":68772038,"name":"92*76261","winloss":18},{"id":34221800,"name":"9262**89","winloss":-221},{"id":15698621,"name":"94*1598*","winloss":-216},{"id":77758397,"name":"95901*38","winloss":35,"children":[{"id":89630622,"name":"1864995*631","winloss":0,"children":[{"id":55798433,"name":"5*880164","winloss":0}]},{"id":76427647,"name":"186947*3513","winloss":0}]}]},{"id":86169668,"name":"691*6747","winloss":27},{"id":78461063,"name":"6927*762","winloss":23},{"id":84952901,"name":"694*139*","winloss":-226},{"id":67202619,"name":"9***8663","winloss":-2200},{"id":83340016,"name":"9**00*86","winloss":-1030},{"id":19172849,"name":"9**4*356","winloss":-1600},{"id":19586098,"name":"9**53411","winloss":-278},{"id":69409983,"name":"9*1*8*72","winloss":-10477},{"id":78804389,"name":"9*442790","winloss":18},{"id":72672095,"name":"9315*861","winloss":45},{"id":22860347,"name":"935681*6","winloss":0},{"id":38937148,"name":"938160*5","winloss":23},{"id":11367348,"name":"96*0*662","winloss":145},{"id":62245807,"name":"96*5**68","winloss":-2655}]},{"id":51953382,"name":"962**80*","winloss":3361},{"id":88753128,"name":"97**873*","winloss":8680,"children":[{"id":17213450,"name":"5**3*838","winloss":-2130},{"id":58625548,"name":"51127*5*","winloss":-966,"children":[{"id":75244477,"name":"6**618*1","winloss":-7025},{"id":54253504,"name":"9**287*1","winloss":-3922,"children":[{"id":13706278,"name":"5647271*","winloss":35,"children":[{"id":91438130,"name":"98*70691","winloss":23}]},{"id":28768893,"name":"6099*151","winloss":0},{"id":36077394,"name":"617***35","winloss":-4100,"children":[{"id":46349233,"name":"544*8513","winloss":0}]},{"id":74944741,"name":"916343*8","winloss":0},{"id":27812293,"name":"923452*1","winloss":18}]},{"id":72485960,"name":"933032*8","winloss":75}]},{"id":87464621,"name":"69*29613","winloss":60}]},{"id":16692244,"name":"9839**76","winloss":-420},{"id":20281454,"name":"'-會桂顏","winloss":-640,"children":[{"id":71626993,"name":"'- 財哥","winloss":2024,"children":[{"id":59738717,"name":"*1401535","winloss":23},{"id":85792375,"name":"*7044**8","winloss":-1313},{"id":64082704,"name":"6**46*49","winloss":-33096},{"id":43107655,"name":"98769*10","winloss":0}]},{"id":88950456,"name":"**87892*","winloss":1250,"children":[{"id":53227140,"name":"13143847*29","winloss":0},{"id":32895404,"name":"544594*4","winloss":0},{"id":53264558,"name":"6*36*821","winloss":765,"children":[{"id":26556500,"name":"60*799*4","winloss":100},{"id":18645222,"name":"62528*15","winloss":0,"children":[{"id":64888155,"name":"684**465","winloss":361}]},{"id":17424802,"name":"63*0**11","winloss":3082,"children":[{"id":79880762,"name":"**84*851","winloss":-13010},{"id":21845452,"name":"5*1*2595","winloss":-961},{"id":92190438,"name":"5548288*","winloss":0},{"id":21422070,"name":"69*4019*","winloss":440},{"id":40593275,"name":"929194*2","winloss":47}]},{"id":63479934,"name":"96**8037","winloss":404}]},{"id":37210311,"name":"61*7*7*8","winloss":1100},{"id":13420018,"name":"611*2433","winloss":0},{"id":19623926,"name":"68*25997","winloss":17,"children":[{"id":45389632,"name":"9699*711","winloss":34}]},{"id":36250562,"name":"913*9345","winloss":0},{"id":67684266,"name":"935**593","winloss":-712,"children":[{"id":35632018,"name":"*56*31*1","winloss":2707}]},{"id":80452312,"name":"94886*93","winloss":0}]},{"id":78297974,"name":"*1*86137","winloss":244},{"id":64499420,"name":"*2*88*37","winloss":-46796},{"id":56827834,"name":"*382912*","winloss":215,"children":[{"id":39219139,"name":"5*789166","winloss":0},{"id":52886995,"name":"51*31418","winloss":75},{"id":23096194,"name":"564*6953","winloss":0},{"id":88871669,"name":"6*736899","winloss":0},{"id":55578108,"name":"6156*098","winloss":40},{"id":68525417,"name":"6538961*","winloss":0},{"id":50712300,"name":"675*3462","winloss":70},{"id":25126979,"name":"9*851993","winloss":0},{"id":43995574,"name":"901972*8","winloss":0},{"id":38901249,"name":"9445557*","winloss":0},{"id":67095533,"name":"9851004*","winloss":0}]},{"id":24376640,"name":"185*7489826","winloss":0},{"id":29540620,"name":"5*858663","winloss":0},{"id":11084798,"name":"528**685","winloss":430,"children":[{"id":95067980,"name":"65702*06","winloss":0}]},{"id":70388517,"name":"554*8761","winloss":0,"children":[{"id":77100921,"name":"5281*808","winloss":0}]},{"id":42224495,"name":"5932835*","winloss":0},{"id":43190377,"name":"6*9*6*78","winloss":1076},{"id":28941681,"name":"60*334*5","winloss":369},{"id":72981453,"name":"60389*24","winloss":75},{"id":29728818,"name":"61*36831","winloss":0},{"id":78521126,"name":"610*2679","winloss":0},{"id":20892355,"name":"691*3121","winloss":0},{"id":45931124,"name":"9*25**37","winloss":-12957},{"id":53259544,"name":"9*73446*","winloss":320},{"id":36723572,"name":"928**7*4","winloss":-5121},{"id":22102624,"name":"93195*41","winloss":20,"children":[{"id":59364985,"name":"5*166652","winloss":0},{"id":81810674,"name":"5404835*","winloss":0},{"id":66340141,"name":"6126*23*","winloss":245},{"id":90919239,"name":"90849*21","winloss":0},{"id":46925584,"name":"93*95341","winloss":20},{"id":30964180,"name":"9349*553","winloss":46},{"id":49248095,"name":"9443031*","winloss":20}]},{"id":42549442,"name":"962688**","winloss":393},{"id":61020634,"name":"9823637*","winloss":0},{"id":70622543,"name":"987336*7","winloss":0}]}]},{"id":"orphan","name":"orphan","winloss":-2600,"children":[{"id":64560611,"name":"'- cl","winloss":-2857,"children":[{"id":62045891,"name":"9322847*","winloss":0}]},{"id":84354889,"name":"**426808","winloss":364},{"id":75681613,"name":"*0764988","winloss":33},{"id":62196820,"name":"*1017654","winloss":0},{"id":48553486,"name":"*2032911","winloss":33},{"id":76655849,"name":"*2419038","winloss":0},{"id":70786359,"name":"*4033098","winloss":0},{"id":52904252,"name":"*5284368","winloss":0,"children":[{"id":87591219,"name":"*6081885","winloss":0}]},{"id":50495471,"name":"*6501954","winloss":0},{"id":46609115,"name":"*736*737","winloss":136},{"id":10066069,"name":"～😊","winloss":0},{"id":30417583,"name":"44100*64","winloss":51},{"id":15010185,"name":"5174014*","winloss":0},{"id":21671471,"name":"534894*1","winloss":0},{"id":72985569,"name":"5541266*","winloss":0},{"id":93298197,"name":"5588*182","winloss":0},{"id":45762919,"name":"5613*227","winloss":0},{"id":99355507,"name":"5703*666","winloss":11},{"id":87786493,"name":"6*225431","winloss":0},{"id":19895516,"name":"6*361065","winloss":20},{"id":75822404,"name":"6*563313","winloss":0},{"id":73503132,"name":"6*735248","winloss":0},{"id":13247796,"name":"6*823208","winloss":0},{"id":19866311,"name":"6*904239","winloss":0},{"id":29186725,"name":"602*6057","winloss":0},{"id":14126634,"name":"6037889*","winloss":12},{"id":99167103,"name":"604*9312","winloss":0},{"id":52190100,"name":"60904*10","winloss":0},{"id":22175800,"name":"6121*649","winloss":16},{"id":43333320,"name":"622046*2","winloss":12},{"id":11177666,"name":"628029*8","winloss":0},{"id":22666267,"name":"63*30368","winloss":38},{"id":55697074,"name":"644**013","winloss":325},{"id":87747317,"name":"651328*6","winloss":0},{"id":86699877,"name":"656260*1","winloss":0},{"id":95701085,"name":"66*34116","winloss":0},{"id":62518120,"name":"67492*32","winloss":0},{"id":65703435,"name":"68290*31","winloss":0},{"id":54496893,"name":"693*6647","winloss":0},{"id":16893017,"name":"848134*8","winloss":0},{"id":26474931,"name":"9*180383","winloss":0},{"id":17063295,"name":"9*331394","winloss":0},{"id":38261819,"name":"902743*0","winloss":0},{"id":46618546,"name":"9139*361","winloss":0},{"id":85006098,"name":"9240316*","winloss":0},{"id":88238832,"name":"92486*17","winloss":0},{"id":59773656,"name":"938782**","winloss":340,"children":[{"id":56592446,"name":"9650*288","winloss":0}]},{"id":91696476,"name":"9412837*","winloss":0},{"id":51216767,"name":"944056*4","winloss":0},{"id":15946571,"name":"95221*40","winloss":0},{"id":39626621,"name":"967257*8","winloss":11},{"id":84181958,"name":"968299*9","winloss":0},{"id":12388497,"name":"969888*8","winloss":0},{"id":75673319,"name":"97*84136","winloss":0},{"id":50562303,"name":"97266*55","winloss":0},{"id":44900697,"name":"975*1796","winloss":85},{"id":47863828,"name":"98*1*6*3","winloss":1416,"children":[{"id":98134041,"name":"9*029997","winloss":0},{"id":62929431,"name":"982545*8","winloss":0}]},{"id":84218808,"name":"98*25552","winloss":23},{"id":18211601,"name":"98*98893","winloss":0},{"id":54945922,"name":"981248*5","winloss":0,"children":[{"id":77197230,"name":"1777053*406","winloss":0,"children":[{"id":16466221,"name":"*9578958008","winloss":0}]}]},{"id":16282088,"name":"981938*8","winloss":22},{"id":55401049,"name":"9828928*","winloss":25},{"id":80179785,"name":"9850*848","winloss":0},{"id":70035114,"name":"kelvin2798*7192@gamil.com","winloss":56},{"id":87729615,"name":"wuxinchen*4@gmail.com","winloss":0},{"id":88361727,"name":"一輝煌","winloss":-2772}]}]}
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script>
-const RAW_DATA = [{"id":"28487693","name":"Sita","wl":"虧損","children":[{"id":"10672628","name":"61299129","wl":"0.00"},{"id":"11462452","name":"56156804","wl":"0.00"},{"id":"11566899","name":"67570973","wl":"0.00"},{"id":"12968551","name":"18688707821","wl":"虧損","children":[{"id":"11187394","name":"13681688008","wl":"0.00"},{"id":"12319562","name":"97693268","wl":"30.00"},{"id":"15252431","name":"92094658","wl":"虧損"},{"id":"69632617","name":"13128759920","wl":"虧損"},{"id":"87432497","name":"97463933","wl":"虧損"}]},{"id":"13976533","name":"64931388","wl":"23.00"},{"id":"15098693","name":"98362498","wl":"0.00"},{"id":"17430935","name":"51349145","wl":"544.00","children":[{"id":"29587639","name":"98317956","wl":"0.00"},{"id":"34354482","name":"51080033","wl":"105.00"},{"id":"38625213","name":"95227848","wl":"虧損"},{"id":"46777470","name":"54905139","wl":"144.00"},{"id":"54681613","name":"68494208","wl":"0.00"},{"id":"57979538","name":"93270224","wl":"0.00"},{"id":"81284541","name":"57426888","wl":"36.00"},{"id":"96918236","name":"'-Kitty Shu","wl":"虧損","children":[{"id":"37136280","name":"66716518","wl":"虧損"},{"id":"44504777","name":"63660576","wl":"0.00"},{"id":"56571766","name":"96680837","wl":"0.00"},{"id":"81354393","name":"90597452","wl":"虧損"}]}]},{"id":"17642519","name":"93772654","wl":"0.00"},{"id":"18363421","name":"97914828","wl":"53.00"},{"id":"18556200","name":"63888634","wl":"339.00","children":[{"id":"10665133","name":"67738029","wl":"0.00","children":[{"id":"23977810","name":"96216057","wl":"0.00"},{"id":"66190793","name":"51660553","wl":"0.00"}]},{"id":"94390563","name":"63034630","wl":"0.00"}]},{"id":"18901618","name":"'-朱荣华","wl":"虧損","children":[{"id":"16546953","name":"98168552","wl":"0.00"},{"id":"22985323","name":"95464349","wl":"0.00"},{"id":"32404135","name":"67324613","wl":"833.00"},{"id":"39773385","name":"55790632","wl":"59.00"},{"id":"42362192","name":"65580591","wl":"0.00"},{"id":"49125704","name":"63598100","wl":"23.00"},{"id":"51255739","name":"67432370","wl":"44.00"},{"id":"64524787","name":"92730020","wl":"699.00"},{"id":"65783206","name":"63604781","wl":"27.00"},{"id":"77360848","name":"90433293","wl":"0.00"},{"id":"92883153","name":"55778323","wl":"0.00"}]},{"id":"28148382","name":"'-逆襲人生","wl":"6,535.00","children":[{"id":"10846558","name":"64464255","wl":"0.00"},{"id":"15361284","name":"96956028","wl":"0.00"},{"id":"16055642","name":"44311393","wl":"0.00"},{"id":"18941126","name":"51081404","wl":"0.00"},{"id":"21669483","name":"59394913","wl":"16.00"},{"id":"26575924","name":"珍珠","wl":"虧損","children":[{"id":"11629457","name":"84351532","wl":"虧損"},{"id":"13539114","name":"64880847","wl":"30.00","children":[{"id":"39637193","name":"66428359","wl":"0.00"},{"id":"43230878","name":"94313380","wl":"0.00"}]},{"id":"15113927","name":"91240055","wl":"虧損"},{"id":"15485545","name":"98299938","wl":"0.00"},{"id":"22092103","name":"63344286","wl":"86.00"},{"id":"30187533","name":"56218146","wl":"0.00"},{"id":"34301942","name":"94823855","wl":"虧損","children":[{"id":"21999300","name":"60233667","wl":"2,581.00"},{"id":"24378210","name":"61363141","wl":"50.00"},{"id":"38767777","name":"51001628","wl":"虧損"},{"id":"40423270","name":"62930213","wl":"714.00"},{"id":"49091065","name":"90333146","wl":"虧損"},{"id":"49249096","name":"69447528","wl":"虧損"},{"id":"50814879","name":"96632372","wl":"虧損"},{"id":"51159166","name":"95441747","wl":"虧損"},{"id":"54949504","name":"60914946","wl":"168.00"},{"id":"73098713","name":"94707893","wl":"28.00"},{"id":"74674149","name":"65386857","wl":"虧損"},{"id":"75412347","name":"56613427","wl":"225.00"},{"id":"77364868","name":"51776665","wl":"28.00"},{"id":"80676214","name":"95584777","wl":"341.00"},{"id":"81266413","name":"94282234","wl":"39.00"}]},{"id":"37290072","name":"66611458","wl":"0.00"},{"id":"39651977","name":"98538687","wl":"虧損","children":[{"id":"23473031","name":"61966976","wl":"0.00"},{"id":"68664617","name":"97455299","wl":"2,206.00","children":[{"id":"96590182","name":"93364072","wl":"184.00"}]}]},{"id":"40069963","name":"84937684","wl":"0.00"},{"id":"44245518","name":"13302853431","wl":"0.00"},{"id":"46710328","name":"97444278","wl":"768.00","children":[{"id":"19987776","name":"67020633","wl":"0.00"},{"id":"20562749","name":"62214773","wl":"0.00"},{"id":"21818593","name":"56150101","wl":"0.00"},{"id":"79627939","name":"66310186","wl":"0.00"}]},{"id":"53295137","name":"93515586","wl":"2,559.00"},{"id":"53894390","name":"94014531","wl":"91.00"},{"id":"57104689","name":"93145439","wl":"虧損"},{"id":"58146921","name":"63010833","wl":"0.00"},{"id":"60812405","name":"61737007","wl":"1,758.00"},{"id":"63502080","name":"97724137","wl":"0.00"},{"id":"67732781","name":"69187673","wl":"0.00"},{"id":"72177401","name":"97391700","wl":"虧損"},{"id":"73887459","name":"13380249311","wl":"0.00"},{"id":"75862948","name":"萬強林","wl":"9,596.00","children":[{"id":"****","name":"****","wl":"2,412.00"},{"id":"10733869","name":"67249668","wl":"0.00"},{"id":"12902900","name":"56833350","wl":"0.00"},{"id":"20900784","name":"69463989","wl":"334.00"},{"id":"22456841","name":"51199973","wl":"309.00"},{"id":"24683190","name":"93118737","wl":"0.00"},{"id":"26607611","name":"55969258","wl":"0.00"},{"id":"27064856","name":"13824237881","wl":"0.00","children":[{"id":"11629842","name":"13422917383","wl":"0.00","children":[{"id":"12295565","name":"13927353994","wl":"0.00"},{"id":"72654886","name":"13928322686","wl":"0.00","children":[{"id":"93548611","name":"13923633266","wl":"0.00"}]}]}]},{"id":"32154147","name":"97400354","wl":"0.00"},{"id":"32702620","name":"93130609","wl":"309.00"},{"id":"37598384","name":"yehoshuaj777@gmail.com","wl":"0.00"},{"id":"48500598","name":"66700626","wl":"0.00"},{"id":"49214287","name":"47547166","wl":"0.00"},{"id":"49271803","name":"13126467685","wl":"0.00"},{"id":"55368436","name":"68808799","wl":"700.00"},{"id":"56114666","name":"55373884","wl":"虧損","children":[{"id":"15859713","name":"93464949","wl":"0.00"},{"id":"52858498","name":"93444312","wl":"0.00"}]},{"id":"56900938","name":"51191492","wl":"2,078.00","children":[{"id":"27479481","name":"90558053","wl":"106.00","children":[{"id":"21939085","name":"98596558","wl":"0.00"},{"id":"54313381","name":"90351805","wl":"0.00"},{"id":"73757253","name":"51989376","wl":"虧損"},{"id":"99004317","name":"96634817","wl":"0.00"}]}]},{"id":"60239986","name":"98081928","wl":"309.00"},{"id":"62807462","name":"53922527","wl":"0.00"},{"id":"64007080","name":"桃姐","wl":"15,799.00","children":[{"id":"22385664","name":"93646484","wl":"1,344.00"},{"id":"30406606","name":"94136636","wl":"17.00"},{"id":"33830560","name":"67351236","wl":"589.00","children":[{"id":"45198877","name":"93614543","wl":"594.00","children":[{"id":"11113256","name":"63419537","wl":"0.00"}]},{"id":"51363793","name":"95818874","wl":"125.00"},{"id":"57520469","name":"61850307","wl":"341.00"},{"id":"61447933","name":"51139475","wl":"379.00"}]},{"id":"34674162","name":"90783898","wl":"419.00","children":[{"id":"63106948","name":"61591192","wl":"398.00"}]},{"id":"41233018","name":"90249526","wl":"529.00"},{"id":"42844082","name":"94088582","wl":"0.00"},{"id":"43200268","name":"67481574","wl":"0.00"},{"id":"44947863","name":"68886165","wl":"虧損","children":[{"id":"18895900","name":"'-金梅","wl":"虧損"},{"id":"32736707","name":"93400391","wl":"0.00"},{"id":"80134356","name":"90628883","wl":"0.00"}]},{"id":"55835193","name":"60178539","wl":"1,456.00"},{"id":"56511110","name":"67606672","wl":"0.00"},{"id":"60334397","name":"62869795","wl":"401.00"},{"id":"66232492","name":"'- Fong","wl":"15,256.00","children":[{"id":"11440697","name":"93392507","wl":"811.00"},{"id":"23708785","name":"90559310","wl":"758.00"},{"id":"27692026","name":"53161263","wl":"0.00"},{"id":"36795062","name":"96598522","wl":"虧損"},{"id":"49423861","name":"93019409","wl":"2,214.00"},{"id":"56795593","name":"52827138","wl":"0.00"},{"id":"70951070","name":"52827139","wl":"73.00"},{"id":"72685674","name":"60733409","wl":"虧損"},{"id":"73702845","name":"93029490","wl":"0.00"},{"id":"87446926","name":"93325780","wl":"1,941.00"},{"id":"88577617","name":"98765930","wl":"虧損"},{"id":"97578650","name":"64341197","wl":"227.00"}]},{"id":"67896612","name":"91314987","wl":"0.00"},{"id":"68313026","name":"93139289","wl":"0.00"},{"id":"69194209","name":"97628911","wl":"17.00"},{"id":"69501828","name":"65839467","wl":"0.00"},{"id":"73718606","name":"94984468","wl":"0.00"},{"id":"73915093","name":"93121256","wl":"虧損"},{"id":"74449278","name":"97628922","wl":"0.00"},{"id":"76763883","name":"94531037","wl":"39.00"},{"id":"79005448","name":"90436291","wl":"虧損"},{"id":"81579893","name":"94361109","wl":"0.00"},{"id":"81786984","name":"95111946","wl":"22.00"},{"id":"84650953","name":"96496602","wl":"543.00"},{"id":"90506672","name":"~ Mey","wl":"虧損","children":[{"id":"32965647","name":"~woonbing1227","wl":"虧損"},{"id":"66806025","name":"'- Wai","wl":"48.00"},{"id":"99142603","name":"65727273","wl":"28.00"}]},{"id":"90774867","name":"91413987","wl":"0.00"},{"id":"91581955","name":"64469526","wl":"412.00"},{"id":"97036083","name":"53926297","wl":"0.00"},{"id":"98777074","name":"65741116","wl":"0.00"}]},{"id":"75248844","name":"65720900","wl":"581.00"},{"id":"75632718","name":"66112908","wl":"0.00"},{"id":"85711291","name":"62807488","wl":"0.00"},{"id":"90007323","name":"62939861","wl":"17,300.00","children":[{"id":"22534216","name":"53736880","wl":"0.00"},{"id":"35418763","name":"63616250","wl":"0.00"},{"id":"40475708","name":"98569373","wl":"0.00"},{"id":"55316720","name":"61085936","wl":"0.00"},{"id":"58046290","name":"54429486","wl":"2,063.00","children":[{"id":"92453289","name":"13008814006","wl":"0.00","children":[{"id":"57194282","name":"63688305","wl":"0.00"}]}]},{"id":"64391785","name":"67265808","wl":"1,022.00","children":[{"id":"13337580","name":"islilywong@icloud.com","wl":"0.00"}]},{"id":"73851358","name":"54386243","wl":"151.00"},{"id":"75293300","name":"95179815","wl":"0.00"},{"id":"78459800","name":"60134588","wl":"45.00"},{"id":"98135758","name":"92251345","wl":"55.00"},{"id":"98591254","name":"92251378","wl":"0.00"}]},{"id":"99743282","name":"54908183","wl":"0.00"}]},{"id":"86499460","name":"64968887","wl":"0.00"},{"id":"87865595","name":"54033991","wl":"虧損"},{"id":"89757809","name":"61214329","wl":"17.00"},{"id":"90205676","name":"68321522","wl":"139.00"},{"id":"93500457","name":"94663201","wl":"0.00"},{"id":"99164802","name":"52931987","wl":"0.00"}]},{"id":"28866271","name":"93720938","wl":"0.00","children":[{"id":"90106861","name":"67347865","wl":"0.00"}]},{"id":"29935550","name":"91404113","wl":"0.00"},{"id":"31827748","name":"Ellen","wl":"7,672.00","children":[{"id":"10565810","name":"~ - lukwaichin","wl":"3,208.00","children":[{"id":"15030650","name":"63346827","wl":"0.00","children":[{"id":"55994732","name":"53663598","wl":"0.00"}]},{"id":"17762517","name":"51366117","wl":"0.00"},{"id":"20424374","name":"95712542","wl":"27.00"},{"id":"23262436","name":"69925871","wl":"0.00"},{"id":"48845970","name":"67080163","wl":"1,333.00"},{"id":"55651176","name":"92754513","wl":"虧損"},{"id":"95718504","name":"65444428","wl":"0.00"}]},{"id":"12949097","name":"93888433","wl":"0.00"},{"id":"13090153","name":"91914986","wl":"775.00"},{"id":"16864039","name":"18512173910","wl":"0.00"},{"id":"19744582","name":"97129107","wl":"虧損"},{"id":"29488529","name":"94031904","wl":"虧損"},{"id":"29546665","name":"62213817","wl":"13.00"},{"id":"30064459","name":"91671056","wl":"虧損","children":[{"id":"23436157","name":"98717365","wl":"25.00"},{"id":"57566180","name":"63620362","wl":"28.00","children":[{"id":"50225566","name":"66768897","wl":"23.00"}]},{"id":"73505751","name":"59141339","wl":"25.00","children":[{"id":"43681174","name":"92036059","wl":"0.00"}]},{"id":"92129145","name":"90331743","wl":"30.00"}]},{"id":"30766076","name":"'-佩頤 Connie Sin","wl":"虧損"},{"id":"40246282","name":"68278576","wl":"21.00","children":[{"id":"34594135","name":"92364539","wl":"0.00"}]},{"id":"42676454","name":"66830289","wl":"0.00"},{"id":"52880516","name":"61066794","wl":"19.00"},{"id":"63343611","name":"51609268","wl":"0.00"},{"id":"64399690","name":"65898827","wl":"虧損"},{"id":"67477383","name":"97836098","wl":"0.00"},{"id":"76115669","name":"94004699","wl":"0.00"},{"id":"83029228","name":"'- 鐯寶香","wl":"虧損","children":[{"id":"23053815","name":"90466803","wl":"0.00"},{"id":"24452113","name":"62210931","wl":"0.00"},{"id":"26735398","name":"91260319","wl":"0.00"},{"id":"33719070","name":"53015079","wl":"虧損"},{"id":"33939572","name":"68456698","wl":"666.00"},{"id":"61965746","name":"98269827","wl":"虧損"},{"id":"80434164","name":"63706531","wl":"0.00"},{"id":"84129468","name":"92731639","wl":"0.00"},{"id":"85801746","name":"90413839","wl":"38.00"},{"id":"87938770","name":"96099377","wl":"虧損","children":[{"id":"74151428","name":"97938829","wl":"0.00"},{"id":"93966366","name":"54886222","wl":"0.00"}]}]},{"id":"83464322","name":"57021693","wl":"虧損"},{"id":"84082487","name":"46618707","wl":"0.00"},{"id":"90722499","name":"92329941","wl":"0.00"},{"id":"96597437","name":"55013808","wl":"26.00"}]},{"id":"38979520","name":"18688729441","wl":"0.00"},{"id":"39147969","name":"67725600","wl":"0.00"},{"id":"39316844","name":"55413730","wl":"0.00"},{"id":"39664846","name":"68988062","wl":"0.00"},{"id":"40660281","name":"51149353","wl":"21.00"},{"id":"45479765","name":"66630422","wl":"21.00"},{"id":"45661451","name":"65497324","wl":"0.00"},{"id":"49451332","name":"94286928","wl":"11.00"},{"id":"55057733","name":"63544650","wl":"0.00"},{"id":"57335895","name":"96492247","wl":"0.00","children":[{"id":"20489954","name":"94419593","wl":"0.00"}]},{"id":"59398175","name":"63378384","wl":"16.00"},{"id":"61105498","name":"97731713","wl":"0.00"},{"id":"63192797","name":"57021218","wl":"0.00"},{"id":"66045754","name":"55745568","wl":"0.00"},{"id":"67354296","name":"51723939","wl":"21.00"},{"id":"78993697","name":"63160499","wl":"0.00"},{"id":"84994430","name":"91444134","wl":"0.00"},{"id":"85383623","name":"65634814","wl":"0.00"},{"id":"87257077","name":"56027626","wl":"0.00"},{"id":"87891757","name":"67725609","wl":"0.00"},{"id":"88500329","name":"61345526","wl":"16.00"},{"id":"88722543","name":"96527704","wl":"0.00"},{"id":"89122935","name":"59595462","wl":"0.00"},{"id":"94786626","name":"53931930","wl":"29.00","children":[{"id":"86800659","name":"97486048","wl":"39.00"}]},{"id":"97852905","name":"68893943","wl":"360.00"},{"id":"98728528","name":"92919494","wl":"0.00"},{"id":"98849855","name":"67266844","wl":"0.00"}]},{"id":"28264457","name":"69168308","wl":"0.00","children":[{"id":"32147941","name":"64888963","wl":"0.00"},{"id":"80380864","name":"64404343","wl":"0.00"}]},{"id":"29246881","name":"67782708","wl":"0.00"},{"id":"33224885","name":"61315327","wl":"0.00"},{"id":"35361085","name":"金文","wl":"7,397.00","children":[{"id":"10278373","name":"92564184","wl":"0.00"},{"id":"13485235","name":"63488638","wl":"0.00"},{"id":"14831722","name":"61449643","wl":"0.00","children":[{"id":"68720845","name":"53051391","wl":"0.00"}]},{"id":"16996893","name":"60493113","wl":"0.00"},{"id":"17102970","name":"61716159","wl":"0.00"},{"id":"19259152","name":"90269848","wl":"0.00"},{"id":"20020629","name":"'- Kannie Chung","wl":"虧損","children":[{"id":"45197404","name":"13143730974","wl":"0.00"},{"id":"62522158","name":"13413578660","wl":"0.00","children":[{"id":"21870515","name":"13680016364","wl":"0.00"}]},{"id":"63400802","name":"15989502189","wl":"0.00"},{"id":"84787728","name":"93857011","wl":"0.00"},{"id":"87928919","name":"84031908","wl":"0.00"},{"id":"92901987","name":"64131482","wl":"0.00"}]},{"id":"21377724","name":"68297633","wl":"0.00"},{"id":"21405963","name":"'- Living Golden Water","wl":"165.00"},{"id":"23453716","name":"61974756","wl":"0.00"},{"id":"31004330","name":"59986719","wl":"0.00"},{"id":"33547517","name":"98501626","wl":"0.00"},{"id":"33548073","name":"95223080","wl":"0.00"},{"id":"37815557","name":"56063887","wl":"0.00"},{"id":"40686705","name":"98690360","wl":"0.00"},{"id":"40793021","name":"94494140","wl":"0.00","children":[{"id":"21444836","name":"66470888","wl":"0.00"},{"id":"21639871","name":"68865311","wl":"0.00"},{"id":"44453564","name":"52225286","wl":"0.00"},{"id":"45639324","name":"93830799","wl":"0.00"},{"id":"58546024","name":"13794721648","wl":"0.00"},{"id":"80134956","name":"53245554","wl":"0.00"}]},{"id":"41795342","name":"94741454","wl":"0.00"},{"id":"42464112","name":"62285618","wl":"0.00"},{"id":"42983424","name":"46600383","wl":"0.00"},{"id":"44339644","name":"67019304","wl":"0.00"},{"id":"45250117","name":"95414944","wl":"0.00"},{"id":"46617875","name":"68809980","wl":"0.00"},{"id":"50432476","name":"96504953","wl":"0.00","children":[{"id":"89073553","name":"84007524","wl":"0.00"}]},{"id":"54466150","name":"67055700","wl":"35.00"},{"id":"55090070","name":"92447104","wl":"0.00"},{"id":"57423206","name":"56268626","wl":"0.00"},{"id":"61104409","name":"91920790","wl":"0.00"},{"id":"62305196","name":"61029598","wl":"0.00"},{"id":"66511855","name":"69210609","wl":"0.00"},{"id":"67074141","name":"'-大吉平安","wl":"虧損","children":[{"id":"13721634","name":"62525388","wl":"0.00"},{"id":"15908574","name":"90427160","wl":"30.00"},{"id":"17801554","name":"55600360","wl":"0.00"},{"id":"26684747","name":"46600323","wl":"0.00"},{"id":"27662603","name":"68010488","wl":"0.00"},{"id":"28593055","name":"'- Favour Monica","wl":"虧損"},{"id":"28810238","name":"95434159","wl":"虧損","children":[{"id":"38383804","name":"13149945814","wl":"45.00"}]},{"id":"29776604","name":"66198238","wl":"0.00"},{"id":"31169423","name":"60573587","wl":"0.00"},{"id":"31648285","name":"53002782","wl":"0.00"},{"id":"36229520","name":"53965188","wl":"13.00"},{"id":"37854128","name":"94728164","wl":"39.00"},{"id":"47213951","name":"94996268","wl":"903.00"},{"id":"57153819","name":"55418302","wl":"0.00"},{"id":"57853776","name":"69334553","wl":"0.00","children":[{"id":"38255342","name":"95552964","wl":"0.00"},{"id":"40322296","name":"63449843","wl":"0.00"}]},{"id":"59266692","name":"60333848","wl":"0.00"},{"id":"59471198","name":"51888509","wl":"0.00"},{"id":"60310320","name":"67647918","wl":"0.00"},{"id":"60543289","name":"55426708","wl":"0.00"},{"id":"60600074","name":"55486145","wl":"0.00"},{"id":"63387657","name":"54133913","wl":"704.00"},{"id":"63995564","name":"94542668","wl":"虧損"},{"id":"64197654","name":"62654516","wl":"12,624.00","children":[{"id":"15503255","name":"65191314","wl":"11,016.00"},{"id":"36760287","name":"51653195","wl":"198.00"},{"id":"95096379","name":"95682768","wl":"48.00"}]},{"id":"65562927","name":"68469553","wl":"18.00"},{"id":"66256944","name":"51668493","wl":"0.00"},{"id":"67311001","name":"93661275","wl":"0.00"},{"id":"73505032","name":"97787076","wl":"0.00"},{"id":"74017912","name":"19876482924","wl":"0.00"},{"id":"78992345","name":"98814755","wl":"10.00"},{"id":"81431953","name":"94413431","wl":"0.00"},{"id":"82519549","name":"57038363","wl":"13.00"},{"id":"85373771","name":"52076983","wl":"18.00"},{"id":"88086444","name":"18107616761","wl":"0.00"},{"id":"89274021","name":"醫院","wl":"虧損","children":[{"id":"19284428","name":"'-李仙","wl":"虧損"},{"id":"24344037","name":"~ Kay","wl":"虧損","children":[{"id":"95643284","name":"65554196","wl":"虧損"}]},{"id":"33965553","name":"65847958","wl":"虧損"},{"id":"37773314","name":"69713200","wl":"虧損","children":[{"id":"57037755","name":"61386333","wl":"虧損"},{"id":"98464620","name":"97595628","wl":"虧損","children":[{"id":"67920002","name":"90202486","wl":"虧損"}]}]},{"id":"52928226","name":"59750868","wl":"虧損"},{"id":"62967748","name":"56202664","wl":"虧損"},{"id":"67134865","name":"55923033","wl":"虧損"},{"id":"81708395","name":"67267255","wl":"虧損"},{"id":"81724225","name":"93491299","wl":"虧損"},{"id":"89616204","name":"95111223","wl":"0.00"},{"id":"91078541","name":"93820219","wl":"虧損"},{"id":"97842300","name":"95180262","wl":"虧損"}]},{"id":"92425213","name":"61365101","wl":"0.00"},{"id":"94407182","name":"91782575","wl":"24.00","children":[{"id":"34234783","name":"97386781","wl":"0.00"},{"id":"52919240","name":"95184236","wl":"23.00"}]},{"id":"95711840","name":"61283773","wl":"0.00"},{"id":"96224174","name":"62307797","wl":"4,238.00","children":[{"id":"94682314","name":"96323598","wl":"0.00"}]},{"id":"97177584","name":"52008700","wl":"0.00"},{"id":"97200323","name":"51164420","wl":"0.00"},{"id":"97771887","name":"62328350","wl":"虧損"},{"id":"99229597","name":"53385738","wl":"0.00"}]},{"id":"69883896","name":"61552732","wl":"0.00"},{"id":"71114569","name":"64776164","wl":"0.00"},{"id":"71453930","name":"96631477","wl":"286.00"},{"id":"75596512","name":"90278607","wl":"0.00"},{"id":"76558938","name":"67768910","wl":"0.00"},{"id":"78095771","name":"98314992","wl":"0.00"},{"id":"78385363","name":"63658524","wl":"0.00"},{"id":"85964313","name":"92829863","wl":"0.00"},{"id":"86319462","name":"67748561","wl":"0.00"},{"id":"89960140","name":"93291379","wl":"0.00"},{"id":"90150852","name":"98772232","wl":"0.00"},{"id":"90367488","name":"66001055","wl":"176.00","children":[{"id":"26193534","name":"98850489","wl":"0.00"},{"id":"42455523","name":"51133903","wl":"0.00"},{"id":"81287657","name":"55405923","wl":"0.00"}]},{"id":"90449995","name":"55779782","wl":"33.00","children":[{"id":"18924040","name":"92376040","wl":"0.00"},{"id":"64537778","name":"51126609","wl":"0.00"}]},{"id":"90753158","name":"91587573","wl":"0.00"},{"id":"91272867","name":"91617319","wl":"0.00"},{"id":"98196746","name":"90766136","wl":"0.00","children":[{"id":"67863642","name":"92529109","wl":"0.00"}]}]},{"id":"35514420","name":"62840598","wl":"0.00"},{"id":"38500014","name":"64334243","wl":"154.00"},{"id":"40209808","name":"92052836","wl":"0.00"},{"id":"40238745","name":"97173381","wl":"95.00","children":[{"id":"21608378","name":"54365313","wl":"0.00"},{"id":"22405531","name":"56257687","wl":"0.00"},{"id":"55682989","name":"93701985","wl":"0.00"},{"id":"86192092","name":"68192843","wl":"0.00"}]},{"id":"43313527","name":"91539431","wl":"0.00"},{"id":"45538611","name":"96133715","wl":"0.00","children":[{"id":"40140329","name":"hkjimmylam@yahoo.com","wl":"0.00"},{"id":"42160417","name":"Rockisthis@yahoo.com.hk","wl":"0.00"}]},{"id":"45559297","name":"61535949","wl":"0.00"},{"id":"45646875","name":"51147558","wl":"0.00"},{"id":"46330695","name":"51174597","wl":"0.00","children":[{"id":"11205037","name":"51698414","wl":"0.00"},{"id":"11489054","name":"67173515","wl":"0.00"},{"id":"13807041","name":"64440519","wl":"0.00"},{"id":"22061087","name":"66176239","wl":"0.00"},{"id":"22947244","name":"53050786","wl":"0.00"},{"id":"22952454","name":"51788254","wl":"0.00"},{"id":"34002212","name":"61908496","wl":"0.00"},{"id":"34052228","name":"93903531","wl":"0.00"},{"id":"35093129","name":"65964254","wl":"0.00"},{"id":"47939479","name":"63652203","wl":"0.00"},{"id":"48367414","name":"46893792","wl":"0.00"},{"id":"50947035","name":"91836061","wl":"0.00"},{"id":"58592739","name":"59905686","wl":"0.00"},{"id":"62653066","name":"94523209","wl":"0.00"},{"id":"65516409","name":"91973413","wl":"0.00"},{"id":"69270884","name":"68456033","wl":"0.00"},{"id":"72603757","name":"92264768","wl":"0.00"},{"id":"74795092","name":"60258962","wl":"0.00"},{"id":"77328028","name":"67312727","wl":"0.00"},{"id":"78704344","name":"91430117","wl":"0.00"},{"id":"84398486","name":"61041708","wl":"0.00"},{"id":"89592807","name":"92508759","wl":"0.00"},{"id":"92864855","name":"61430194","wl":"0.00"},{"id":"97345417","name":"65177728","wl":"0.00"},{"id":"99102161","name":"90789440","wl":"0.00"}]},{"id":"49973949","name":"'- Sandy 霊","wl":"虧損","children":[{"id":"10727370","name":"92275169","wl":"0.00"},{"id":"11189657","name":"68712984","wl":"0.00"},{"id":"11533560","name":"69910371","wl":"0.00"},{"id":"14191165","name":"97341745","wl":"0.00"},{"id":"15443433","name":"57034150","wl":"30.00"},{"id":"15453230","name":"65535301","wl":"0.00"},{"id":"16148912","name":"53484196","wl":"0.00"},{"id":"16168322","name":"69261256","wl":"0.00"},{"id":"16298514","name":"59616628","wl":"0.00"},{"id":"17922794","name":"92912895","wl":"306.00"},{"id":"18552272","name":"51132486","wl":"0.00"},{"id":"18636282","name":"90818310","wl":"0.00"},{"id":"18781356","name":"51102872","wl":"0.00"},{"id":"19686552","name":"94669995","wl":"0.00"},{"id":"22573892","name":"90857366","wl":"0.00"},{"id":"25100364","name":"92520599","wl":"0.00"},{"id":"26930715","name":"90333662","wl":"0.00"},{"id":"27268083","name":"60849126","wl":"0.00"},{"id":"27656031","name":"67465280","wl":"0.00"},{"id":"27875585","name":"98220131","wl":"1,771.00"},{"id":"29039657","name":"95267854","wl":"45.00"},{"id":"29567988","name":"60188539","wl":"325.00"},{"id":"29628526","name":"54046908","wl":"0.00"},{"id":"32044928","name":"52829002","wl":"虧損"},{"id":"32763616","name":"96355948","wl":"0.00"},{"id":"33011068","name":"96209484","wl":"0.00"},{"id":"34900386","name":"69655696","wl":"0.00"},{"id":"36152863","name":"55028233","wl":"0.00"},{"id":"36925380","name":"92248981","wl":"0.00"},{"id":"37468670","name":"67953336","wl":"0.00"},{"id":"40132141","name":"51827727","wl":"0.00"},{"id":"40330221","name":"52921116","wl":"1,952.00"},{"id":"40821734","name":"61504719","wl":"0.00"},{"id":"41111008","name":"97381623","wl":"23.00"},{"id":"42520296","name":"95859263","wl":"0.00"},{"id":"45913502","name":"64982195","wl":"0.00"},{"id":"46679337","name":"68485965","wl":"0.00"},{"id":"47012077","name":"95170262","wl":"0.00"},{"id":"48013100","name":"66797328","wl":"0.00"},{"id":"49415058","name":"56014867","wl":"0.00"},{"id":"50695242","name":"95489818","wl":"0.00"},{"id":"52139300","name":"54021642","wl":"虧損","children":[{"id":"11747287","name":"98323219","wl":"虧損"},{"id":"22077274","name":"55911864","wl":"虧損"},{"id":"25387007","name":"54007884","wl":"虧損"},{"id":"33121483","name":"60973805","wl":"虧損"},{"id":"39567238","name":"93332780","wl":"0.00"},{"id":"45385707","name":"57031507","wl":"3,118.00"},{"id":"52659523","name":"97417063","wl":"虧損"},{"id":"53834583","name":"84893005","wl":"40.00"},{"id":"66212660","name":"61341819","wl":"1,936.00"},{"id":"69175802","name":"55472326","wl":"450.00"},{"id":"72952146","name":"51176667","wl":"虧損"},{"id":"85084962","name":"61071746","wl":"40.00"},{"id":"98250850","name":"54005623","wl":"虧損"}]},{"id":"52505465","name":"90894723","wl":"680.00"},{"id":"52886711","name":"92156156","wl":"38.00"},{"id":"57405418","name":"96834628","wl":"0.00"},{"id":"58646344","name":"66234578","wl":"虧損","children":[{"id":"33354552","name":"~ 省見覺😃","wl":"47.00"},{"id":"42744729","name":"62302224","wl":"41.00"},{"id":"51523646","name":"52221020","wl":"0.00"},{"id":"73960003","name":"'- Eva","wl":"虧損"},{"id":"92452989","name":"60149541","wl":"0.00","children":[{"id":"35657311","name":"90187624","wl":"0.00"}]}]},{"id":"59009393","name":"61723264","wl":"0.00"},{"id":"61598601","name":"98522931","wl":"0.00"},{"id":"61827034","name":"98326637","wl":"19.00"},{"id":"62188490","name":"65833575","wl":"0.00"},{"id":"62237810","name":"55410926","wl":"0.00"},{"id":"62995784","name":"91686790","wl":"0.00"},{"id":"65110801","name":"51623878","wl":"1,673.00"},{"id":"65116703","name":"54093360","wl":"1,468.00"},{"id":"66911537","name":"95596882","wl":"1,500.00","children":[{"id":"14657234","name":"63334715","wl":"36.00"}]},{"id":"69739793","name":"94289218","wl":"95.00"},{"id":"70203798","name":"91355071","wl":"0.00"},{"id":"71909051","name":"67020893","wl":"325.00","children":[{"id":"58980451","name":"93022083","wl":"0.00"}]},{"id":"74524373","name":"62576340","wl":"0.00"},{"id":"74898992","name":"62203042","wl":"39.00"},{"id":"75882185","name":"96888149","wl":"0.00"},{"id":"76942601","name":"63131632","wl":"0.00"},{"id":"78325399","name":"98097978","wl":"0.00"},{"id":"78551081","name":"'- Yan","wl":"虧損","children":[{"id":"33195057","name":"94250202","wl":"0.00"}]},{"id":"78862731","name":"61571696","wl":"0.00"},{"id":"79073393","name":"59891825","wl":"19.00"},{"id":"79505745","name":"53478169","wl":"0.00"},{"id":"79923337","name":"61357009","wl":"0.00"},{"id":"80345295","name":"一方生","wl":"虧損","children":[{"id":"85559315","name":"69799860","wl":"0.00"},{"id":"93035717","name":"93568981","wl":"0.00"}]},{"id":"83560929","name":"97229555","wl":"0.00"},{"id":"84802033","name":"98415808","wl":"0.00"},{"id":"84953756","name":"93126931","wl":"0.00"},{"id":"86899624","name":"54223934","wl":"1,993.00","children":[{"id":"49940531","name":"53663157","wl":"0.00"}]},{"id":"86913321","name":"63601069","wl":"0.00"},{"id":"87953836","name":"97353929","wl":"0.00"},{"id":"88739383","name":"51827827","wl":"0.00"},{"id":"89905450","name":"62272006","wl":"19.00"},{"id":"91103260","name":"55410248","wl":"0.00"},{"id":"91624477","name":"55409025","wl":"45.00"},{"id":"92197284","name":"63092291","wl":"38.00"},{"id":"92333541","name":"90297252","wl":"0.00"},{"id":"92360438","name":"92387369","wl":"0.00"},{"id":"93219630","name":"59887953","wl":"0.00"},{"id":"96728899","name":"93564699","wl":"31.00"},{"id":"96799545","name":"68510694","wl":"0.00"},{"id":"96849213","name":"95217588","wl":"0.00"},{"id":"98379520","name":"97166698","wl":"0.00"},{"id":"98673404","name":"68743680","wl":"0.00"}]},{"id":"50390196","name":"93383766","wl":"0.00"},{"id":"50861133","name":"63384892","wl":"0.00"},{"id":"51117879","name":"97862787","wl":"虧損"},{"id":"51160276","name":"55149927","wl":"虧損"},{"id":"55022954","name":"93460021","wl":"16.00","children":[{"id":"34966057","name":"65389088","wl":"16.00"},{"id":"40748498","name":"92393645","wl":"0.00"},{"id":"54375219","name":"95897143","wl":"0.00"},{"id":"60986742","name":"94222629","wl":"0.00"},{"id":"70860299","name":"93498866","wl":"0.00"}]},{"id":"55658978","name":"94952707","wl":"2,067.00","children":[{"id":"30743550","name":"97908116","wl":"320.00"},{"id":"44318419","name":"91939441","wl":"1,811.00","children":[{"id":"93334492","name":"91878748","wl":"1,355.00"}]},{"id":"58219438","name":"61012349","wl":"430.00","children":[{"id":"56172895","name":"60230034","wl":"0.00"}]}]},{"id":"55857526","name":"51395406","wl":"0.00"},{"id":"56764525","name":"53132633","wl":"0.00"},{"id":"59608390","name":"'- Albert Lam","wl":"虧損"},{"id":"59890183","name":"54419990","wl":"70.00"},{"id":"62575741","name":"52867886","wl":"0.00","children":[{"id":"55224491","name":"67220308","wl":"0.00"}]},{"id":"62734462","name":"'- Lai Wai Fan","wl":"625.00","children":[{"id":"82758046","name":"96453680","wl":"虧損"}]},{"id":"63250808","name":"94711261","wl":"0.00"},{"id":"64192366","name":"Susanna","wl":"虧損"},{"id":"66890804","name":"68919738","wl":"0.00"},{"id":"70537147","name":"92728268","wl":"虧損"},{"id":"70585237","name":"68077687","wl":"虧損"},{"id":"71252401","name":"62968698","wl":"79.00"},{"id":"73996029","name":"54606614","wl":"0.00"},{"id":"74313123","name":"Candy","wl":"虧損","children":[{"id":"20436439","name":"69192508","wl":"941.00"},{"id":"53045063","name":"94531231","wl":"0.00"},{"id":"57991003","name":"94531221","wl":"2,484.00"},{"id":"71269752","name":"97856180","wl":"虧損"},{"id":"78327703","name":"53351876","wl":"0.00"},{"id":"84110576","name":"64093637","wl":"0.00"},{"id":"88358107","name":"96018648","wl":"18.00"}]},{"id":"75749263","name":"60141939","wl":"0.00","children":[{"id":"75194028","name":"97291968","wl":"0.00"}]},{"id":"76130565","name":"莫詠琦","wl":"193.00","children":[{"id":"16825513","name":"90300052","wl":"0.00"},{"id":"17343189","name":"93639716","wl":"0.00"}]},{"id":"76885234","name":"'-晴晴","wl":"虧損","children":[{"id":"21223333","name":"84829870","wl":"0.00"},{"id":"23253757","name":"53177418","wl":"0.00"},{"id":"25986902","name":"'- May","wl":"虧損","children":[{"id":"10241413","name":"60698170","wl":"0.00"},{"id":"16393121","name":"13684942066","wl":"0.00"},{"id":"77101771","name":"91901545","wl":"虧損"}]},{"id":"30078851","name":"17736636533","wl":"614.00"},{"id":"37967938","name":"66770288","wl":"0.00"},{"id":"38017534","name":"56060039","wl":"0.00"},{"id":"44117538","name":"91733965","wl":"23.00"},{"id":"44519847","name":"51699018","wl":"0.00"},{"id":"54447921","name":"96869475","wl":"0.00"},{"id":"64750134","name":"60437211","wl":"0.00"},{"id":"91335171","name":"59724521","wl":"0.00"},{"id":"91341833","name":"91058693","wl":"0.00"}]},{"id":"79996573","name":"90188907","wl":"0.00"},{"id":"80504217","name":"92163054","wl":"334.00","children":[{"id":"80680479","name":"53035272","wl":"320.00","children":[{"id":"69468147","name":"54055907","wl":"325.00"}]}]},{"id":"83976142","name":"Mui Lok","wl":"4,255.00","children":[{"id":"13797881","name":"69160806","wl":"0.00"},{"id":"34043616","name":"59305868","wl":"8,671.00"},{"id":"60012506","name":"94549210","wl":"0.00"},{"id":"77282382","name":"53199193","wl":"虧損"},{"id":"82197581","name":"93787055","wl":"31.00","children":[{"id":"47730912","name":"60823070","wl":"0.00"}]}]},{"id":"86259941","name":"93175159","wl":"0.00"},{"id":"86358899","name":"94333255","wl":"0.00"},{"id":"87553330","name":"90619082","wl":"0.00"},{"id":"92406917","name":"52602862","wl":"0.00"},{"id":"95035017","name":"93394330","wl":"1,954.00","children":[{"id":"55788385","name":"64632727","wl":"0.00"},{"id":"61731105","name":"62544113","wl":"0.00","children":[{"id":"10850851","name":"97065668","wl":"0.00"},{"id":"35055838","name":"54134113","wl":"0.00"}]},{"id":"65739095","name":"65138682","wl":"149.00","children":[{"id":"69992369","name":"90933818","wl":"0.00"},{"id":"87098179","name":"92868634","wl":"0.00"}]},{"id":"68859434","name":"67567262","wl":"319.00"}]},{"id":"96335982","name":"62137851","wl":"0.00"},{"id":"97038246","name":"62238518","wl":"0.00"}]},{"id":"64560611","name":"'- cl","wl":"虧損","children":[{"id":"62045891","name":"93228472","wl":"0.00"}]},{"id":"12388497","name":"96988898","wl":"0.00"},{"id":"21671471","name":"53489421","wl":"0.00"},{"id":"38261819","name":"90274350","wl":"0.00"},{"id":"46609115","name":"57364737","wl":"136.00"},{"id":"50562303","name":"97266155","wl":"0.00"},{"id":"51216767","name":"94405674","wl":"0.00"},{"id":"54496893","name":"69326647","wl":"0.00"},{"id":"62196820","name":"51017654","wl":"0.00"},{"id":"73503132","name":"65735248","wl":"0.00"},{"id":"76655849","name":"52419038","wl":"0.00"},{"id":"85006098","name":"92403167","wl":"0.00"},{"id":"87786493","name":"66225431","wl":"0.00"},{"id":"88361727","name":"一輝煌","wl":"虧損"},{"id":"91696476","name":"94128376","wl":"0.00"}];
+    const duration = 280;
+    const nodeRadius = 8;
+    let width, height;
+    let root, seq = 0;
+    let zoomBehavior, svg, g, gLink, gNode;
+    let highlightedIds = new Set();
+    let searchTargetId = null;
 
-/* ---------- helpers ---------- */
-function parseWL(wl){
-  if(wl === "" || wl === undefined || wl === null) return {kind:'none', value:0};
-  if(wl === '虧損') return {kind:'loss', value:0};
-  const n = parseFloat(String(wl).replace(/,/g,''));
-  if(isNaN(n)) return {kind:'none', value:0};
-  if(n === 0) return {kind:'zero', value:0};
-  return {kind:'pos', value:n};
-}
-function fmtWL(wl){
-  if(wl === '虧損') return '虧損';
-  if(wl === "" || wl === undefined) return '';
-  const n = parseFloat(String(wl).replace(/,/g,''));
-  if(isNaN(n)) return wl;
-  const formatted = n.toLocaleString(undefined,{minimumFractionDigits:0, maximumFractionDigits:2});
-  return n > 0 ? '賺' + formatted : formatted;
-}
-function colorFor(kind){
-  switch(kind){
-    case 'loss': return {fg:'var(--red)', bg:'var(--red-dim)'};
-    case 'pos': return {fg:'var(--gold)', bg:'var(--gold-dim)'};
-    default: return {fg:'var(--gray)', bg:'rgba(85,103,122,0.18)'};
-  }
-}
-function countDescendants(d){
-  let n = 0;
-  if(d.children) n += d.children.length + d.children.reduce((a,c)=>a+countDescendants(c),0);
-  else if(d._children) n += d._children.length + d._children.reduce((a,c)=>a+countDescendants(c),0);
-  return n;
-}
+    function init() {
+      const chart = document.getElementById('chart');
+      width = chart.clientWidth;
+      height = chart.clientHeight;
 
-/* ---------- layout constants ---------- */
-const NODE_W = 176;
-const NODE_H = 46;
-const LEVEL_GAP = 208;
-const SIB_GAP = 14;
-const TREE_GAP = 46; // vertical gap between independent trees in the forest
+      zoomBehavior = d3.zoom()
+        .scaleExtent([0.05, 4])
+        .on('zoom', (event) => g.attr('transform', event.transform));
 
-const svg = d3.select('#tree-svg');
-const gZoom = svg.append('g').attr('class','zoom-layer');
-const gLinks = gZoom.append('g').attr('class','links-layer');
-const gNodes = gZoom.append('g').attr('class','nodes-layer');
+      svg = d3.select('#chart').append('svg')
+        .attr('width', width).attr('height', height)
+        .call(zoomBehavior)
+        .on('dblclick.zoom', null);
 
-let i = 0;
-const duration = 260;
+      g = svg.append('g');
+      gLink = g.append('g').attr('class', 'links');
+      gNode = g.append('g').attr('class', 'nodes');
 
-const treeLayout = d3.tree()
-  .nodeSize([NODE_H + SIB_GAP, LEVEL_GAP])
-  .separation((a,b)=> a.parent === b.parent ? 1 : 1.3);
+      root = d3.hierarchy(TREE_DATA, d => d.children);
+      root.x0 = height / 2;
+      root.y0 = 0;
 
-function buildHierarchy(data){
-  const h = d3.hierarchy(data, d => d.children);
-  h.each(d => { d.id = d.data.id; });
-  h.x0 = 0; h.y0 = 0;
-  return h;
-}
+      // 預設：展開第一層主要大戶，其餘收合
+      if (root.children) {
+        root.children.forEach(d => {
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+          }
+        });
+      }
 
-// RAW_DATA is now a real forest: an array of independent trees, each rooted
-// at an account that actually exists in the source data (no invented parents).
-const forest = RAW_DATA.map(buildHierarchy);
+      update(root);
+      centerView();
+      updateStats();
 
-// default: show each tree's own root card, collapse everything beneath it
-function collapseDeep(d){
-  if(d.children){
-    d._children = d.children;
-    d._children.forEach(collapseDeep);
-    d.children = null;
-  }
-}
-function expandAll(d){
-  if(d._children){ d.children = d._children; d._children = null; }
-  if(d.children) d.children.forEach(expandAll);
-}
-function collapseAll(d, isRoot){
-  if(d.children){
-    d._children = d.children;
-    d._children.forEach(c=>collapseAll(c,false));
-    if(!isRoot) d.children = null;
-  } else if(d._children){
-    d._children.forEach(c=>collapseAll(c,false));
-  }
-}
-forest.forEach(t => collapseDeep(t));
+      document.getElementById('btnSearch').addEventListener('click', doSearch);
+      document.getElementById('searchInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doSearch();
+      });
+      document.getElementById('btnExpand').addEventListener('click', expandAll);
+      document.getElementById('btnCollapse').addEventListener('click', collapseAll);
+      document.getElementById('btnReset').addEventListener('click', resetView);
 
-/* stats */
-function totalNodes(d){
-  let n = 1;
-  const kids = d.children || d._children;
-  if(kids) kids.forEach(c => n += totalNodes(c));
-  return n;
-}
-function maxDepth(d){
-  const kids = d.children || d._children;
-  if(!kids || !kids.length) return d.depth;
-  return Math.max(...kids.map(maxDepth));
-}
-document.getElementById('stat-total').textContent = forest.reduce((a,t)=>a+totalNodes(t),0).toLocaleString();
-document.getElementById('stat-roots').textContent = forest.length;
-document.getElementById('stat-depth').textContent = Math.max(...forest.map(maxDepth));
+      window.addEventListener('resize', () => {
+        width = chart.clientWidth;
+        height = chart.clientHeight;
+        svg.attr('width', width).attr('height', height);
+        update(root);
+      });
+    }
 
-/* ---------- zoom/pan ---------- */
-const zoom = d3.zoom()
-  .scaleExtent([0.15, 2.5])
-  .on('zoom', (event) => { gZoom.attr('transform', event.transform); });
-svg.call(zoom);
+    function collapse(d) {
+      if (d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
+      }
+    }
 
-function centerView(instant){
-  const wrap = document.getElementById('canvas-wrap');
-  const w = wrap.clientWidth, h = wrap.clientHeight;
-  // center vertically on the first (largest) tree's root, near the left edge
-  const firstRootY = forest[0] ? forest[0].y : 0;
-  const t = d3.zoomIdentity.translate(40, h/2 - firstRootY*0.85).scale(0.85);
-  if(instant) svg.call(zoom.transform, t);
-  else svg.transition().duration(400).call(zoom.transform, t);
-}
+    function expand(d) {
+      if (d._children) {
+        d.children = d._children;
+        d._children = null;
+      }
+      if (d.children) d.children.forEach(expand);
+    }
 
-document.getElementById('zoom-in').onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 1.3);
-document.getElementById('zoom-out').onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 0.75);
-document.getElementById('zoom-reset').onclick = () => centerView(false);
+    function expandAll() {
+      expand(root);
+      update(root);
+      updateStats();
+    }
 
-/* ---------- render ---------- */
-function update(source){
-  // lay out each tree independently, then stack them vertically so
-  // separate trees never overlap regardless of how expanded they are
-  let cursor = 0;
-  let nodes = [], links = [];
-  forest.forEach(t => {
-    treeLayout(t);
-    const tNodes = t.descendants();
-    const tLinks = t.links();
-    // swap x/y for left-to-right orientation
-    tNodes.forEach(d => { const tmp = d.x; d.x = d.y; d.y = tmp; });
-    const minY = Math.min(...tNodes.map(d => d.y));
-    const maxY = Math.max(...tNodes.map(d => d.y));
-    const offset = cursor - minY;
-    tNodes.forEach(d => { d.y += offset; });
-    cursor = maxY + offset + NODE_H + TREE_GAP;
-    nodes = nodes.concat(tNodes);
-    links = links.concat(tLinks);
-  });
+    function collapseAll() {
+      function collapseDeep(d) {
+        if (d.children) {
+          d._children = d.children;
+          d._children.forEach(collapseDeep);
+          d.children = null;
+        } else if (d._children) {
+          d._children.forEach(collapseDeep);
+        }
+      }
+      collapseDeep(root);
+      if (root._children) {
+        root.children = root._children;
+        root._children = null;
+        root.children.forEach(d => {
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+          }
+        });
+      }
+      update(root);
+      centerView();
+      updateStats();
+    }
 
-  /* NODES */
-  const node = gNodes.selectAll('g.node')
-    .data(nodes, d => d.id || (d.id = ++i));
+    function resetView() {
+      highlightedIds.clear();
+      searchTargetId = null;
+      document.getElementById('searchResult').classList.remove('visible');
+      document.getElementById('searchInput').value = '';
+      collapseAll();
+    }
 
-  const nodeEnter = node.enter().append('g')
-    .attr('class', d => 'node' + (d.depth===0 ? ' root' : ''))
-    .attr('transform', d => `translate(${source.x0},${source.y0})`)
-    .on('click', (event, d) => {
-      if(d.children){ d._children = d.children; d.children = null; }
-      else if(d._children){ d.children = d._children; d._children = null; }
+    function centerView() {
+      const scale = 0.5;
+      svg.transition().duration(500)
+        .call(zoomBehavior.transform, d3.zoomIdentity.translate(100, height / 2).scale(scale));
+    }
+
+    function updateStats() {
+      let total = 0, open = 0;
+      root.each(d => { total++; if (d.children) open++; });
+      document.getElementById('stats').textContent =
+        '節點總數：' + (total - 1) + '　｜　已展開：' + open;
+    }
+
+    function update(source) {
+      const treeLayout = d3.tree()
+        .nodeSize([26, 190])
+        .separation((a, b) => a.parent === b.parent ? 1 : 1.1);
+
+      const treeData = treeLayout(root);
+      const nodes = treeData.descendants();
+      const links = treeData.links();
+      nodes.forEach(d => { d.y = d.depth * 190; });
+
+      const node = gNode.selectAll('g.node')
+        .data(nodes, d => d.id || (d.id = ++seq));
+
+      const nodeEnter = node.enter().append('g')
+        .attr('class', 'node')
+        .attr('transform', d => 'translate(' + source.y0 + ',' + source.x0 + ')')
+        .on('click', (event, d) => { event.stopPropagation(); toggle(d); })
+        .on('mouseover', (event, d) => showTooltip(event, d))
+        .on('mousemove', moveTooltip)
+        .on('mouseout', hideTooltip);
+
+      nodeEnter.append('circle')
+        .attr('r', 1e-6)
+        .attr('fill', d => colorFor(d))
+        .attr('stroke', d => strokeFor(d));
+
+      nodeEnter.append('text')
+        .attr('class', 'name')
+        .attr('dy', '-0.35em')
+        .attr('x', d => d.children || d._children ? -11 : 11)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
+        .text(d => truncate(d.data.name, 14));
+
+      nodeEnter.append('text')
+        .attr('class', 'meta')
+        .attr('dy', '0.95em')
+        .attr('x', d => d.children || d._children ? -11 : 11)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
+        .text(d => d.data.id === 'root' ? '' : d.data.id);
+
+      nodeEnter.append('text')
+        .attr('class', 'child-count')
+        .attr('dy', '0.35em')
+        .attr('x', 0)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#fff')
+        .attr('font-size', '8px')
+        .attr('font-weight', 'bold')
+        .style('pointer-events', 'none');
+
+      const nodeUpdate = nodeEnter.merge(node);
+
+      nodeUpdate.transition().duration(duration)
+        .attr('transform', d => 'translate(' + d.y + ',' + d.x + ')');
+
+      nodeUpdate.select('circle')
+        .attr('r', d => d.data.id === 'root' ? 11 : nodeRadius)
+        .attr('fill', d => colorFor(d))
+        .attr('stroke', d => strokeFor(d))
+        .attr('stroke-width', d => {
+          if (searchTargetId && d.data.id === searchTargetId) return 4;
+          if (highlightedIds.has(d.data.id)) return 3;
+          return 2;
+        });
+
+      nodeUpdate.classed('highlight', d => highlightedIds.has(d.data.id));
+      nodeUpdate.classed('search-target', d => d.data.id === searchTargetId);
+
+      nodeUpdate.selectAll('text.name, text.meta')
+        .attr('x', d => d.children || d._children ? -12 : 12)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start');
+
+      nodeUpdate.select('text.child-count')
+        .text(d => {
+          if (d.data.id === 'root') return '';
+          const n = (d._children || d.children || []).length;
+          return n > 0 ? n : '';
+        });
+
+      node.exit().transition().duration(duration)
+        .attr('transform', d => 'translate(' + source.y + ',' + source.x + ')')
+        .remove()
+        .select('circle').attr('r', 1e-6);
+
+      const link = gLink.selectAll('path.link')
+        .data(links, d => d.target.id);
+
+      const linkEnter = link.enter().insert('path', 'g')
+        .attr('class', 'link')
+        .attr('d', d => {
+          const o = { x: source.x0, y: source.y0 };
+          return diagonal(o, o);
+        });
+
+      linkEnter.merge(link)
+        .classed('highlight', d =>
+          highlightedIds.has(d.source.data.id) && highlightedIds.has(d.target.data.id))
+        .transition().duration(duration)
+        .attr('d', d => diagonal(d.source, d.target));
+
+      link.exit().transition().duration(duration)
+        .attr('d', d => {
+          const o = { x: source.x, y: source.y };
+          return diagonal(o, o);
+        })
+        .remove();
+
+      nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+      updateStats();
+    }
+
+    function diagonal(s, d) {
+      return 'M' + s.y + ',' + s.x +
+        'C' + ((s.y + d.y) / 2) + ',' + s.x +
+        ' ' + ((s.y + d.y) / 2) + ',' + d.x +
+        ' ' + d.y + ',' + d.x;
+    }
+
+    function toggle(d) {
+      if (d.children) {
+        d._children = d.children;
+        d.children = null;
+      } else if (d._children) {
+        d.children = d._children;
+        d._children = null;
+      }
       update(d);
-    });
+    }
 
-  nodeEnter.append('rect')
-    .attr('class','card')
-    .attr('width', NODE_W).attr('height', NODE_H)
-    .attr('x', -NODE_W/2).attr('y', -NODE_H/2)
-    .attr('rx', 9);
+    function colorFor(d) {
+      if (d.data.id === 'root') return '#3b82f6';
+      const w = d.data.winloss;
+      if (w == null) return '#64748b';
+      if (w > 0) return '#22c55e';
+      if (w < 0) return '#ef4444';
+      return '#64748b';
+    }
 
-  // amount chip (left accent bar)
-  nodeEnter.append('rect')
-    .attr('class','chip-bar')
-    .attr('width', 4).attr('height', NODE_H-14)
-    .attr('x', -NODE_W/2).attr('y', -(NODE_H-14)/2)
-    .attr('rx', 2)
-    .attr('fill', d => d.data.id==='root' ? 'transparent' : colorFor(parseWL(d.data.wl).kind).fg);
+    function strokeFor(d) {
+      if (d.data.id === 'root') return '#60a5fa';
+      const w = d.data.winloss;
+      if (w == null) return '#94a3b8';
+      if (w > 0) return '#16a34a';
+      if (w < 0) return '#dc2626';
+      return '#94a3b8';
+    }
 
-  nodeEnter.append('text')
-    .attr('class','name')
-    .attr('x', -NODE_W/2 + 14).attr('y', -4)
-    .text(d => {
-      const nm = String(d.data.name || '');
-      return nm.length > 15 ? nm.slice(0,14)+'…' : nm;
-    });
+    function truncate(str, len) {
+      if (!str) return '';
+      return str.length > len ? str.slice(0, len - 1) + '…' : str;
+    }
 
-  nodeEnter.append('text')
-    .attr('class','idtext')
-    .attr('x', -NODE_W/2 + 14).attr('y', 10)
-    .text(d => d.data.id === 'root' ? '' : `#${d.data.id}`);
+    function formatNumber(n) {
+      if (n == null) return '無資料';
+      const abs = Math.abs(n);
+      const formatted = abs.toLocaleString('zh-HK');
+      return n > 0 ? '+' + formatted : n < 0 ? '-' + formatted : '0';
+    }
 
-  nodeEnter.append('text')
-    .attr('class','chip-text')
-    .attr('x', NODE_W/2 - 10).attr('y', 10)
-    .attr('text-anchor','end')
-    .attr('fill', d => colorFor(parseWL(d.data.wl).kind).fg)
-    .text(d => d.data.id==='root' ? '' : fmtWL(d.data.wl));
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
 
-  // toggle indicator circle at right edge when node has (collapsed) children
-  const toggle = nodeEnter.filter(d => d.children || d._children)
-    .append('g').attr('class','toggle').attr('transform', `translate(${NODE_W/2}, 0)`);
+    const tooltipEl = document.getElementById('tooltip');
+    function showTooltip(event, d) {
+      if (d.data.id === 'root') {
+        tooltipEl.innerHTML = '<div class="title">組織架構根</div><div class="row"><span class="label">說明</span><span>虛擬根（匯集本檔案頂層）</span></div>';
+      } else {
+        const w = d.data.winloss;
+        const cls = w > 0 ? 'pos' : w < 0 ? 'neg' : '';
+        const kids = (d._children || d.children || []).length;
+        tooltipEl.innerHTML =
+          '<div class="title">' + escapeHtml(d.data.name) + '</div>' +
+          '<div class="row"><span class="label">用戶 ID</span><span>' + d.data.id + '</span></div>' +
+          '<div class="row"><span class="label">盈虧</span><span class="' + cls + '">' + formatNumber(w) + '</span></div>' +
+          '<div class="row"><span class="label">下線人數</span><span>' + kids + '</span></div>';
+      }
+      tooltipEl.classList.add('visible');
+      moveTooltip(event);
+    }
+    function moveTooltip(event) {
+      tooltipEl.style.left = (event.clientX + 14) + 'px';
+      tooltipEl.style.top = (event.clientY + 14) + 'px';
+    }
+    function hideTooltip() { tooltipEl.classList.remove('visible'); }
 
-  toggle.append('circle').attr('class','toggle-ring').attr('r', 13);
-  toggle.append('text')
-    .attr('class','badge-text')
-    .attr('text-anchor','middle')
-    .attr('dy', 3)
-    .attr('fill', 'var(--text-dim)')
-    .text(d => d._children ? shortNum(d._children.length + d._children.reduce((a,c)=>a+countDescendants(c),0)) : '−');
+    function doSearch() {
+      const q = document.getElementById('searchInput').value.trim();
+      if (!q) {
+        highlightedIds.clear();
+        searchTargetId = null;
+        document.getElementById('searchResult').classList.remove('visible');
+        update(root);
+        return;
+      }
 
-  const nodeUpdate = nodeEnter.merge(node);
+      const fullRoot = d3.hierarchy(TREE_DATA, d => d.children);
+      let pathIds = null;
+      fullRoot.each(d => {
+        if (String(d.data.id) === q) {
+          pathIds = d.ancestors().map(a => a.data.id).reverse();
+        }
+      });
+      if (!pathIds) {
+        fullRoot.each(d => {
+          if (!pathIds && String(d.data.id).includes(q)) {
+            pathIds = d.ancestors().map(a => a.data.id).reverse();
+          }
+        });
+      }
 
-  nodeUpdate.transition().duration(duration)
-    .attr('transform', d => `translate(${d.x},${d.y})`);
+      if (pathIds) {
+        expandPath(pathIds);
+        let found = null;
+        root.each(d => {
+          if (d.data.id === pathIds[pathIds.length - 1]) found = d;
+        });
+        if (found) {
+          highlightedIds = new Set(found.ancestors().map(a => a.data.id));
+          searchTargetId = found.data.id;
+          update(root);
+          setTimeout(function() {
+            const scale = 0.9;
+            const tx = width / 2 - found.y * scale;
+            const ty = height / 2 - found.x * scale;
+            svg.transition().duration(600)
+              .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+          }, 320);
+          const res = document.getElementById('searchResult');
+          res.innerHTML =
+            '<strong>找到節點</strong><br>名稱：' + escapeHtml(found.data.name) +
+            '<br>ID：' + found.data.id +
+            '<br>盈虧：' + formatNumber(found.data.winloss);
+          res.classList.add('visible');
+          return;
+        }
+      }
 
-  nodeUpdate.select('.toggle-ring')
-    .attr('fill', d => d._children ? 'var(--panel-2)' : 'none');
-  nodeUpdate.selectAll('g.toggle text')
-    .text(d => d._children ? shortNum(d._children.length + d._children.reduce((a,c)=>a+countDescendants(c),0)) : '−');
+      highlightedIds.clear();
+      searchTargetId = null;
+      update(root);
+      const res = document.getElementById('searchResult');
+      res.innerHTML = '<strong>找不到</strong><br>沒有符合「' + escapeHtml(q) + '」的用戶 ID';
+      res.classList.add('visible');
+    }
 
-  const nodeExit = node.exit().transition().duration(duration)
-    .attr('transform', d => `translate(${source.x},${source.y})`)
-    .remove();
+    function expandPath(pathIds) {
+      function walk(node, remaining) {
+        if (!remaining.length) return;
+        if (node._children) {
+          node.children = node._children;
+          node._children = null;
+        }
+        if (node.children) {
+          const child = node.children.find(c => c.data.id === remaining[0]);
+          if (child) walk(child, remaining.slice(1));
+        }
+      }
+      walk(root, pathIds.slice(1));
+    }
 
-  /* LINKS */
-  const link = gLinks.selectAll('path.link')
-    .data(links, d => d.target.id);
-
-  const linkEnter = link.enter().insert('path','g')
-    .attr('class','link')
-    .attr('d', d => {
-      const o = {x: source.x0, y: source.y0};
-      return diagonal(o,o);
-    });
-
-  linkEnter.merge(link).transition().duration(duration)
-    .attr('d', d => diagonal(d.source, d.target));
-
-  link.exit().transition().duration(duration)
-    .attr('d', d => {
-      const o = {x: source.x, y: source.y};
-      return diagonal(o,o);
-    }).remove();
-
-  nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
-}
-
-function diagonal(s, t){
-  return `M ${s.x} ${s.y}
-          C ${(s.x+t.x)/2} ${s.y},
-            ${(s.x+t.x)/2} ${t.y},
-            ${t.x} ${t.y}`;
-}
-function shortNum(n){
-  if(n >= 1000) return (n/1000).toFixed(1)+'k';
-  return String(n);
-}
-
-update(forest[0]);
-centerView(true);
-
-/* ---------- search ---------- */
-const searchInput = document.getElementById('search');
-const searchWrap = document.getElementById('search-wrap');
-const resultsBox = document.getElementById('search-results');
-const searchClear = document.getElementById('search-clear');
-
-function flatten(d, acc){
-  acc.push(d);
-  const kids = d.children || d._children;
-  if(kids) kids.forEach(c => flatten(c, acc));
-  return acc;
-}
-
-function flattenForest(){
-  let all = [];
-  forest.forEach(t => flatten(t, all));
-  return all;
-}
-
-searchInput.addEventListener('input', () => {
-  const q = searchInput.value.trim().toLowerCase();
-  searchWrap.classList.toggle('has-val', q.length>0);
-  if(!q){ resultsBox.classList.remove('show'); return; }
-  const all = flattenForest();
-  const matches = all.filter(d =>
-    String(d.data.id).toLowerCase().includes(q) ||
-    String(d.data.name).toLowerCase().includes(q)
-  ).slice(0, 30);
-
-  resultsBox.innerHTML = '';
-  if(!matches.length){
-    resultsBox.innerHTML = '<div class="sr-empty">No accounts match “'+q+'”</div>';
-  } else {
-    matches.forEach(d => {
-      const row = document.createElement('div');
-      row.className = 'sr-item';
-      row.innerHTML = `<span class="sr-name">${escapeHtml(String(d.data.name))}</span><span class="sr-id">#${d.data.id}</span>`;
-      row.onclick = () => { focusNode(d); resultsBox.classList.remove('show'); };
-      resultsBox.appendChild(row);
-    });
-  }
-  resultsBox.classList.add('show');
-});
-searchClear.onclick = () => { searchInput.value=''; searchWrap.classList.remove('has-val'); resultsBox.classList.remove('show'); };
-
-function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function findLive(targetId){
-  return flattenForest().find(d => d.data.id === targetId);
-}
-
-function focusNode(target){
-  // expand ancestors
-  let d = target;
-  const chain = [];
-  while(d){ chain.unshift(d); d = d.parent; }
-  chain.forEach(node => {
-    if(node._children){ node.children = node._children; node._children = null; }
-  });
-  update(target);
-
-  // after transition, locate live node & pan to it
-  setTimeout(() => {
-    const live = findLive(target.data.id);
-    if(!live) return;
-    const wrap = document.getElementById('canvas-wrap');
-    const w = wrap.clientWidth, h = wrap.clientHeight;
-    const scale = 0.9;
-    const t = d3.zoomIdentity.translate(w*0.32 - live.x*scale, h/2 - live.y*scale).scale(scale);
-    svg.transition().duration(500).call(zoom.transform, t);
-
-    const g = gNodes.selectAll('g.node').filter(nd => nd.data.id === target.data.id);
-    g.classed('highlight', true);
-    setTimeout(()=>g.classed('highlight', false), 1800);
-  }, duration + 40);
-}
-
-/* click outside to close results */
-document.addEventListener('click', (e) => {
-  if(!searchWrap.contains(e.target)) resultsBox.classList.remove('show');
-});
-
-/* toolbar buttons */
-document.getElementById('btn-expand').onclick = () => {
-  forest.forEach(t => expandAll(t));
-  update(forest[0]);
-};
-document.getElementById('btn-collapse').onclick = () => {
-  forest.forEach(t => collapseDeep(t));
-  update(forest[0]);
-  centerView(false);
-};
-
-/* fade hint after a few seconds */
-setTimeout(()=>{ document.getElementById('hint').style.opacity = '0'; }, 4500);
-
-/* resize handling */
-window.addEventListener('resize', () => {});
-</script>
+    init();
+  </script>
 </body>
 </html>
