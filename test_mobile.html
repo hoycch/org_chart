@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>團隊組織架構圖</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --positive: #22c55e;
+      --negative: #ef4444;
+      --link: #475569;
+      --highlight: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "PingFang HK", "Noto Sans TC", "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+    h1 { font-size: 1.25rem; font-weight: 600; white-space: nowrap; }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      flex-wrap: wrap;
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      min-width: 200px;
+      flex: 1;
+      max-width: 320px;
+    }
+    .search-box input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 0.95rem;
+      width: 100%;
+      font-family: inherit;
+    }
+    .search-box input::placeholder { color: var(--muted); }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.secondary:hover { background: var(--border); }
+    #chart { flex: 1; position: relative; overflow: hidden; }
+    svg { width: 100%; height: 100%; cursor: grab; }
+    svg:active { cursor: grabbing; }
+    .node circle {
+      stroke-width: 2px;
+      cursor: pointer;
+      transition: r 0.15s, stroke-width 0.15s;
+    }
+    .node circle:hover { stroke-width: 3px; }
+    .node text {
+      font-size: 12px;
+      fill: var(--text);
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    .node text.name { font-weight: 500; }
+    .node text.meta { font-size: 10px; fill: var(--muted); }
+    .link {
+      fill: none;
+      stroke: var(--link);
+      stroke-width: 1.5px;
+      stroke-opacity: 0.65;
+    }
+    .link.highlight {
+      stroke: var(--highlight);
+      stroke-width: 2.5px;
+      stroke-opacity: 1;
+    }
+    .node.highlight circle {
+      stroke: var(--highlight) !important;
+      stroke-width: 3px;
+    }
+    .node.search-target circle {
+      stroke: #f59e0b !important;
+      stroke-width: 4px;
+      filter: drop-shadow(0 0 6px #f59e0b);
+    }
+    .tooltip {
+      position: absolute;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 20;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      max-width: 280px;
+      font-size: 0.875rem;
+    }
+    .tooltip.visible { opacity: 1; }
+    .tooltip .title { font-weight: 600; margin-bottom: 6px; font-size: 1rem; }
+    .tooltip .row { display: flex; justify-content: space-between; gap: 16px; margin: 4px 0; }
+    .tooltip .label { color: var(--muted); }
+    .tooltip .pos { color: var(--positive); font-weight: 600; }
+    .tooltip .neg { color: var(--negative); font-weight: 600; }
+    .legend {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      z-index: 5;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid;
+    }
+    .stats { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+    .search-result {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      z-index: 5;
+      max-width: 300px;
+      display: none;
+    }
+    .search-result.visible { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>團隊組織架構圖</h1>
+    <div class="controls">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜尋用戶 ID..." autocomplete="off">
+      </div>
+      <button id="btnSearch">搜尋</button>
+      <button class="secondary" id="btnExpand">全部展開</button>
+      <button class="secondary" id="btnCollapse">全部收合</button>
+      <button class="secondary" id="btnReset">重設視圖</button>
+      <span class="stats" id="stats"></span>
+    </div>
+  </header>
+  <div id="chart">
+    <div class="tooltip" id="tooltip"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#22c55e;border-color:#16a34a"></div> 盈餘 (正)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;border-color:#dc2626"></div> 虧損 (負)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#64748b;border-color:#475569"></div> 零 / 無資料</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#1e293b;border-color:#fbbf24"></div> 搜尋結果路徑</div>
+    </div>
+    <div class="search-result" id="searchResult"></div>
+  </div>
+
+  <script>
+    const TREE_DATA = {"id":"root","name":"組織架構根","winloss":null,"children":[{"id":"83560217","name":"Cindy","winloss":-279490.0,"children":[{"id":"77588588","name":"**520*02","winloss":1982.0},{"id":"63282032","name":"*2415036","winloss":0.0},{"id":"24084352","name":"*3*18*25","winloss":2786.0},{"id":"10990558","name":"*329622787","winloss":0.0},{"id":"64063325","name":"*3425880866","winloss":0.0},{"id":"96694543","name":"*390283**86","winloss":3063.0},{"id":"72938097","name":"*56*2*55","winloss":2302.0},{"id":"50822116","name":"*6*31513","winloss":683.0},{"id":"98732331","name":"*6*5*868","winloss":1726.0},{"id":"65110132","name":"*618*7*3","winloss":1987.0},{"id":"43572640","name":"*6503006","winloss":0.0},{"id":"96952122","name":"*6510166","winloss":0.0},{"id":"20238233","name":"*66*4*10","winloss":2972.0},{"id":"65224914","name":"*8252271","winloss":0.0},{"id":"74077125","name":"*8818874","winloss":0.0},{"id":"18410692","name":"*8915116","winloss":0.0},{"id":"50611046","name":"1*0888**182","winloss":1899.0},{"id":"70931320","name":"13*12596934","winloss":0.0},{"id":"52734293","name":"135313560*4","winloss":0.0},{"id":"36866614","name":"135399858*5","winloss":0.0},{"id":"80022296","name":"1392326863*","winloss":0.0},{"id":"84465088","name":"1597*723226","winloss":0.0},{"id":"73411835","name":"17*17234007","winloss":0.0},{"id":"25757240","name":"1892997*877","winloss":0.0},{"id":"43726690","name":"6**6166*","winloss":11714.0},{"id":"49077883","name":"6*0*667*","winloss":2802.0},{"id":"95648510","name":"6*1*2*26","winloss":1207.0},{"id":"22486434","name":"6*201*2*","winloss":2303.0},{"id":"76988948","name":"6*282795","winloss":70.0},{"id":"50819325","name":"6*3*2587","winloss":328.0},{"id":"96165551","name":"6*331985","winloss":85.0},{"id":"23958990","name":"6*612759","winloss":36.0},{"id":"61330732","name":"6*768*97","winloss":722.0},{"id":"12803126","name":"6*808*1*","winloss":2202.0},{"id":"82289498","name":"6*99*8*5","winloss":1390.0},{"id":"63278046","name":"6209186*","winloss":33.0},{"id":"21894250","name":"62496*71","winloss":0.0},{"id":"44904940","name":"63*62*88","winloss":214.0},{"id":"67072178","name":"63*665*2","winloss":932.0},{"id":"86161722","name":"6300*788","winloss":0.0},{"id":"80063142","name":"63166*99","winloss":0.0},{"id":"14539196","name":"6339180*","winloss":33.0},{"id":"82696956","name":"637*18**","winloss":3778.0},{"id":"62479797","name":"65*22*0*","winloss":2303.0},{"id":"26027695","name":"652089*2","winloss":34.0},{"id":"58794589","name":"65230*95","winloss":93.0},{"id":"96239129","name":"6560*660","winloss":90.0},{"id":"67556401","name":"66**086*","winloss":3130.0},{"id":"74533746","name":"66**119*","winloss":1987.0},{"id":"84445091","name":"66**60*4","winloss":3366.0},{"id":"15163558","name":"66*5**23","winloss":-27841.0},{"id":"29692639","name":"66*93668","winloss":48.0},{"id":"27628606","name":"66*99325","winloss":0.0},{"id":"31514228","name":"6624887*","winloss":0.0},{"id":"34807996","name":"663*1**6","winloss":3265.0},{"id":"28787585","name":"6637*796","winloss":50.0},{"id":"74635836","name":"66393*65","winloss":0.0},{"id":"69333504","name":"66397*1*","winloss":701.0},{"id":"20259618","name":"66463***","winloss":-4784.0},{"id":"63777504","name":"665**1*0","winloss":3477.0},{"id":"45046994","name":"665*2557","winloss":55.0},{"id":"99932488","name":"665*62**","winloss":-47947.0},{"id":"77021873","name":"6655632*","winloss":53.0},{"id":"40173840","name":"666*0009","winloss":0.0},{"id":"46995052","name":"666*9*73","winloss":360.0},{"id":"70118047","name":"6660703*","winloss":0.0},{"id":"90582074","name":"667*2663","winloss":0.0},{"id":"26350562","name":"668**322","winloss":668.0},{"id":"70594504","name":"668**6*4","winloss":-53647.0},{"id":"50950860","name":"668*18*0","winloss":348.0},{"id":"12764539","name":"668*9250","winloss":0.0},{"id":"67160214","name":"668161*7","winloss":29.0},{"id":"88557624","name":"668694*5","winloss":34.0},{"id":"34763982","name":"67678*86","winloss":0.0},{"id":"56748715","name":"68**6*16","winloss":11753.0},{"id":"57458666","name":"682**06*","winloss":2732.0},{"id":"63908309","name":"83261881*1","winloss":0.0},{"id":"71045020","name":"9377362*","winloss":0.0},{"id":"29213524","name":"9880981*","winloss":0.0},{"id":"44566390","name":"Million(案)","winloss":20242.0},{"id":"58951487","name":"~ Nr","winloss":1619.0},{"id":"57938821","name":"~L A M","winloss":-18180.0}]},{"id":"34490727","name":"Elaine","winloss":-66742.0},{"id":"28487693","name":"Sita","winloss":-202456.0,"children":[{"id":"70585237","name":"**0776*7","winloss":-8562.0},{"id":"10672628","name":"*1299129","winloss":0.0},{"id":"35514420","name":"*2840598","winloss":0.0},{"id":"62575741","name":"*2867886","winloss":0.0},{"id":"56764525","name":"*3132633","winloss":0.0},{"id":"50861133","name":"*3384892","winloss":0.0},{"id":"55658978","name":"*4*52*07","winloss":2067.0},{"id":"86358899","name":"*4333255","winloss":0.0},{"id":"73996029","name":"*4606614","winloss":0.0},{"id":"13976533","name":"*4931388","winloss":23.0},{"id":"28264457","name":"*9168308","winloss":0.0},{"id":"12968551","name":"186*870*82*","winloss":-7622.0},{"id":"45646875","name":"51147*58","winloss":0.0},{"id":"46330695","name":"511745*7","winloss":0.0},{"id":"17430935","name":"513*9*45","winloss":544.0},{"id":"55857526","name":"5139*406","winloss":0.0},{"id":"92406917","name":"52602*62","winloss":0.0},{"id":"59890183","name":"544*9990","winloss":70.0},{"id":"51160276","name":"55*499*7","winloss":-936.0},{"id":"11462452","name":"561*6804","winloss":0.0},{"id":"33224885","name":"6*315327","winloss":0.0},{"id":"75749263","name":"601*1939","winloss":0.0},{"id":"45559297","name":"6153*949","winloss":0.0},{"id":"71252401","name":"62*68698","winloss":79.0},{"id":"96335982","name":"621*7851","winloss":0.0},{"id":"97038246","name":"622385*8","winloss":0.0},{"id":"18556200","name":"63*886*4","winloss":339.0},{"id":"38500014","name":"64*3424*","winloss":154.0},{"id":"11566899","name":"6757*973","winloss":0.0},{"id":"29246881","name":"677*2708","winloss":0.0},{"id":"66890804","name":"6891973*","winloss":0.0},{"id":"15098693","name":"9*362498","winloss":0.0},{"id":"70537147","name":"9*7*826*","winloss":-55411.0},{"id":"51117879","name":"9*862*8*","winloss":-7908.0},{"id":"79996573","name":"9018*907","winloss":0.0},{"id":"87553330","name":"90619*82","winloss":0.0},{"id":"43313527","name":"91539*31","winloss":0.0},{"id":"80504217","name":"92*630*4","winloss":334.0},{"id":"40209808","name":"9205283*","winloss":0.0},{"id":"95035017","name":"93*9*33*","winloss":1954.0},{"id":"86259941","name":"931*5159","winloss":0.0},{"id":"50390196","name":"933*3766","winloss":0.0},{"id":"55022954","name":"9346002*","winloss":16.0},{"id":"17642519","name":"9377*654","winloss":0.0},{"id":"63250808","name":"947112*1","winloss":0.0},{"id":"45538611","name":"961*3715","winloss":0.0},{"id":"40238745","name":"9717*381","winloss":95.0},{"id":"18363421","name":"97914*28","winloss":53.0},{"id":"59608390","name":"Albert Lam","winloss":-17832.0},{"id":"28148382","name":"Amina","winloss":6535.0},{"id":"74313123","name":"Candy","winloss":-14725.0},{"id":"62734462","name":"Lai Wai Fan","winloss":625.0},{"id":"83976142","name":"Mui Lok","winloss":4255.0},{"id":"49973949","name":"Sandy","winloss":-57619.0},{"id":"64192366","name":"Susanna","winloss":-4150.0},{"id":"76885234","name":"晴晴","winloss":-58565.0},{"id":"18901618","name":"朱荣华","winloss":-10256.0},{"id":"76130565","name":"莫詠琦","winloss":193.0},{"id":"35361085","name":"金文","winloss":7397.0}]},{"id":"61329473","name":"契媽","winloss":-70106.0,"children":[{"id":"89292691","name":"**80225*893","winloss":1068.0},{"id":"67106873","name":"*0282953","winloss":0.0},{"id":"43137479","name":"*1*2*331","winloss":-26487.0},{"id":"99112258","name":"*1789834","winloss":0.0},{"id":"59867111","name":"*1852879","winloss":0.0},{"id":"59604411","name":"*2811947","winloss":23.0},{"id":"31699654","name":"*8785527","winloss":0.0},{"id":"78471464","name":"*9671902","winloss":62.0},{"id":"25936838","name":"6**9*325","winloss":-73247.0},{"id":"48723380","name":"618869*6","winloss":38.0},{"id":"34493286","name":"6206*335","winloss":0.0},{"id":"41432446","name":"63*51926","winloss":0.0},{"id":"84069589","name":"63*6*41*","winloss":1063.0},{"id":"44263521","name":"6364654*","winloss":0.0},{"id":"61889323","name":"67*74833","winloss":0.0},{"id":"35756124","name":"67977*61","winloss":0.0},{"id":"48280621","name":"68*93658","winloss":0.0},{"id":"52788676","name":"6933438*","winloss":27.0},{"id":"97974301","name":"9*5729*5","winloss":124.0},{"id":"38444012","name":"9*723296","winloss":0.0},{"id":"79326521","name":"9179*997","winloss":0.0},{"id":"11432253","name":"9335*127","winloss":0.0},{"id":"67991273","name":"9416*981","winloss":0.0},{"id":"10758277","name":"9511870*","winloss":0.0},{"id":"42529361","name":"952161*5","winloss":0.0},{"id":"93850194","name":"967160**","winloss":388.0},{"id":"30307013","name":"97073*16","winloss":0.0},{"id":"78334021","name":"Annie","winloss":-79499.0},{"id":"30906658","name":"MiuMiu","winloss":-194.0},{"id":"40751550","name":"Shan","winloss":-2514.0},{"id":"41261627","name":"lianhuahuang*26","winloss":-12.0},{"id":"74852728","name":"恵萍","winloss":-31550.0}]},{"id":"91396311","name":"玫姐","winloss":-338902.0,"children":[{"id":"83743572","name":"***75217","winloss":-43600.0},{"id":"64697462","name":"**823*43","winloss":-68441.0},{"id":"17409543","name":"*0*2*099","winloss":-9910.0},{"id":"53628326","name":"*2552197","winloss":0.0},{"id":"50900110","name":"*5385969","winloss":0.0},{"id":"46004058","name":"*5560791","winloss":0.0},{"id":"36482420","name":"*6221667","winloss":0.0},{"id":"70537399","name":"*7300746","winloss":0.0},{"id":"65278385","name":"*9168232","winloss":0.0},{"id":"74186375","name":"5100534*","winloss":0.0},{"id":"10594799","name":"519261*8","winloss":0.0},{"id":"86093058","name":"53056*29","winloss":0.0},{"id":"38898550","name":"5400*364","winloss":0.0},{"id":"85438571","name":"544*7*9*","winloss":-2800.0},{"id":"87080396","name":"5600372*","winloss":0.0},{"id":"87672762","name":"6*382**3","winloss":-8000.0},{"id":"17149727","name":"6*613080","winloss":0.0},{"id":"40684802","name":"6*99*289","winloss":783.0},{"id":"70505288","name":"62201*03","winloss":0.0},{"id":"41466118","name":"62334*18","winloss":0.0},{"id":"77007657","name":"6414*80*","winloss":-816.0},{"id":"73820541","name":"6548298*","winloss":0.0},{"id":"38025828","name":"67*4**68","winloss":2193.0},{"id":"97343182","name":"695763*8","winloss":0.0},{"id":"12602885","name":"801062*5","winloss":0.0},{"id":"27202286","name":"9***6865","winloss":-3202.0},{"id":"84197119","name":"9*148021","winloss":0.0},{"id":"84539393","name":"91***538","winloss":-5900.0},{"id":"45291805","name":"910855**","winloss":200.0},{"id":"32344807","name":"91335*72","winloss":0.0},{"id":"91002574","name":"919*73*2","winloss":387.0},{"id":"80530111","name":"92*55889","winloss":19.0},{"id":"58512886","name":"96227*65","winloss":0.0},{"id":"43403441","name":"9755060*","winloss":15.0},{"id":"64135081","name":"~ - Ying","winloss":-34801.0},{"id":"94253372","name":"一朱佐強","winloss":-10654.0},{"id":"34058346","name":"一莎莎","winloss":-169673.0},{"id":"90029499","name":"佛花-悦席成雙","winloss":-2200.0},{"id":"17195039","name":"孫彩勤","winloss":-3359.0},{"id":"21362934","name":"會彩金","winloss":-14699.0},{"id":"14516820","name":"染雨花藍**Fiona","winloss":-33598.0},{"id":"80612304","name":"郭杏榕","winloss":-13000.0}]},{"id":"90126524","name":"貞貞","winloss":-551192.0,"children":[{"id":"28208638","name":"**1*5618","winloss":3901.0},{"id":"32309644","name":"**1468*1","winloss":2437.0},{"id":"88753128","name":"**5787*9","winloss":8680.0},{"id":"47977396","name":"**786825","winloss":845.0},{"id":"57752442","name":"**9431*8","winloss":1888.0},{"id":"96246656","name":"*08*428*","winloss":4444.0},{"id":"14438643","name":"*1*277*8","winloss":1510.0},{"id":"65054972","name":"*1139**3","winloss":1681.0},{"id":"66709464","name":"*1213574","winloss":0.0},{"id":"56279591","name":"*3198391","winloss":30.0},{"id":"68140302","name":"*4**8523","winloss":6340.0},{"id":"61590890","name":"*4415623","winloss":40.0},{"id":"41578523","name":"*47668**","winloss":4168.0},{"id":"83162612","name":"*696*25*","winloss":-50827.0},{"id":"11853542","name":"*9438194","winloss":23.0},{"id":"18800359","name":"13536*7*16*","winloss":9014.0},{"id":"44861868","name":"5*187430","winloss":23.0},{"id":"24999113","name":"5*9421**","winloss":1271.0},{"id":"79730265","name":"51*58986","winloss":30.0},{"id":"80115720","name":"512953*8","winloss":39.0},{"id":"85931531","name":"59186*1*","winloss":105.0},{"id":"30796025","name":"59754*18","winloss":50.0},{"id":"63954576","name":"6**2*024","winloss":27349.0},{"id":"53926275","name":"6*9736*9","winloss":435.0},{"id":"65600558","name":"60*10993","winloss":32.0},{"id":"75823700","name":"607*8731","winloss":24.0},{"id":"28117173","name":"6481469*","winloss":18.0},{"id":"89222583","name":"6840**9*","winloss":1178.0},{"id":"37926258","name":"68983***","winloss":5101.0},{"id":"74222248","name":"8*8*6*71","winloss":4162.0},{"id":"44983031","name":"9**16*27","winloss":1130.0},{"id":"35313926","name":"9**2177*","winloss":-37468.0},{"id":"40666200","name":"9**75861","winloss":683.0},{"id":"91629184","name":"9**9*279","winloss":5057.0},{"id":"89160489","name":"92**01*3","winloss":3210.0},{"id":"39038340","name":"92*73*80","winloss":758.0},{"id":"32085490","name":"922242*5","winloss":40.0},{"id":"34116469","name":"928*7*72","winloss":425.0},{"id":"36128426","name":"93*865**","winloss":1183.0},{"id":"45139725","name":"9306*65*","winloss":147.0},{"id":"51953382","name":"962*1**9","winloss":3361.0},{"id":"16692244","name":"983908**","winloss":-420.0},{"id":"65600569","name":"Boi","winloss":-139738.0},{"id":"53065505","name":"Candy Chung","winloss":-18890.0},{"id":"20281454","name":"會桂顏","winloss":-640.0}]}]};
+
+    const duration = 300;
+    const nodeRadius = 9;
+    let width, height;
+    let root, i = 0;
+    let zoomBehavior, svg, g, gLink, gNode;
+    let highlightedIds = new Set();
+    let searchTargetId = null;
+
+    function init() {
+      const chart = document.getElementById('chart');
+      width = chart.clientWidth;
+      height = chart.clientHeight;
+
+      zoomBehavior = d3.zoom()
+        .scaleExtent([0.08, 3])
+        .on('zoom', (event) => g.attr('transform', event.transform));
+
+      svg = d3.select('#chart').append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .call(zoomBehavior)
+        .on('dblclick.zoom', null);
+
+      g = svg.append('g');
+      gLink = g.append('g').attr('class', 'links');
+      gNode = g.append('g').attr('class', 'nodes');
+
+      root = d3.hierarchy(TREE_DATA, d => d.children);
+      root.x0 = height / 2;
+      root.y0 = 0;
+
+      // 預設：展開第一層，其餘收合（266 節點較多）
+      if (root.children) {
+        root.children.forEach(d => {
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+          }
+        });
+      }
+
+      update(root);
+      centerView();
+      updateStats();
+
+      document.getElementById('btnSearch').addEventListener('click', doSearch);
+      document.getElementById('searchInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doSearch();
+      });
+      document.getElementById('btnExpand').addEventListener('click', expandAll);
+      document.getElementById('btnCollapse').addEventListener('click', collapseAll);
+      document.getElementById('btnReset').addEventListener('click', resetView);
+
+      window.addEventListener('resize', () => {
+        width = chart.clientWidth;
+        height = chart.clientHeight;
+        svg.attr('width', width).attr('height', height);
+        update(root);
+      });
+    }
+
+    function collapse(d) {
+      if (d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
+      }
+    }
+
+    function expand(d) {
+      if (d._children) {
+        d.children = d._children;
+        d._children = null;
+      }
+      if (d.children) d.children.forEach(expand);
+    }
+
+    function expandAll() {
+      expand(root);
+      update(root);
+      updateStats();
+    }
+
+    function collapseAll() {
+      function collapseDeep(d) {
+        if (d.children) {
+          d._children = d.children;
+          d._children.forEach(collapseDeep);
+          d.children = null;
+        } else if (d._children) {
+          d._children.forEach(collapseDeep);
+        }
+      }
+      collapseDeep(root);
+      if (root._children) {
+        root.children = root._children;
+        root._children = null;
+        root.children.forEach(d => {
+          if (d.children) {
+            d._children = d.children;
+            d.children = null;
+          }
+        });
+      }
+      update(root);
+      centerView();
+      updateStats();
+    }
+
+    function resetView() {
+      highlightedIds.clear();
+      searchTargetId = null;
+      document.getElementById('searchResult').classList.remove('visible');
+      document.getElementById('searchInput').value = '';
+      collapseAll();
+    }
+
+    function centerView() {
+      const scale = 0.6;
+      const tx = 120;
+      const ty = height / 2;
+      svg.transition().duration(500)
+        .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+    }
+
+    function updateStats() {
+      let total = 0, open = 0;
+      root.each(d => {
+        total++;
+        if (d.children) open++;
+      });
+      document.getElementById('stats').textContent =
+        `節點總數：${total - 1}　｜　已展開：${open}`;
+    }
+
+    function update(source) {
+      const treeLayout = d3.tree()
+        .nodeSize([28, 200])
+        .separation((a, b) => a.parent === b.parent ? 1 : 1.15);
+
+      const treeData = treeLayout(root);
+      const nodes = treeData.descendants();
+      const links = treeData.links();
+      nodes.forEach(d => { d.y = d.depth * 200; });
+
+      const node = gNode.selectAll('g.node')
+        .data(nodes, d => d.id || (d.id = ++i));
+
+      const nodeEnter = node.enter().append('g')
+        .attr('class', 'node')
+        .attr('transform', d => `translate(${source.y0},${source.x0})`)
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          toggle(d);
+        })
+        .on('mouseover', (event, d) => showTooltip(event, d))
+        .on('mousemove', moveTooltip)
+        .on('mouseout', hideTooltip);
+
+      nodeEnter.append('circle')
+        .attr('r', 1e-6)
+        .attr('fill', d => colorFor(d))
+        .attr('stroke', d => strokeFor(d));
+
+      nodeEnter.append('text')
+        .attr('class', 'name')
+        .attr('dy', '-0.4em')
+        .attr('x', d => d.children || d._children ? -12 : 12)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
+        .text(d => truncate(d.data.name, 16));
+
+      nodeEnter.append('text')
+        .attr('class', 'meta')
+        .attr('dy', '1em')
+        .attr('x', d => d.children || d._children ? -12 : 12)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
+        .text(d => d.data.id === 'root' ? '' : `ID: ${d.data.id}`);
+
+      nodeEnter.append('text')
+        .attr('class', 'child-count')
+        .attr('dy', '0.35em')
+        .attr('x', 0)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#fff')
+        .attr('font-size', '9px')
+        .attr('font-weight', 'bold')
+        .style('pointer-events', 'none');
+
+      const nodeUpdate = nodeEnter.merge(node);
+
+      nodeUpdate.transition().duration(duration)
+        .attr('transform', d => `translate(${d.y},${d.x})`);
+
+      nodeUpdate.select('circle')
+        .attr('r', d => d.data.id === 'root' ? 12 : nodeRadius)
+        .attr('fill', d => colorFor(d))
+        .attr('stroke', d => strokeFor(d))
+        .attr('stroke-width', d => {
+          if (searchTargetId && d.data.id === searchTargetId) return 4;
+          if (highlightedIds.has(d.data.id)) return 3;
+          return 2;
+        });
+
+      nodeUpdate.classed('highlight', d => highlightedIds.has(d.data.id));
+      nodeUpdate.classed('search-target', d => d.data.id === searchTargetId);
+
+      nodeUpdate.selectAll('text.name, text.meta')
+        .attr('x', d => d.children || d._children ? -13 : 13)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start');
+
+      nodeUpdate.select('text.child-count')
+        .text(d => {
+          if (d.data.id === 'root') return '';
+          const n = (d._children || d.children || []).length;
+          return n > 0 ? n : '';
+        });
+
+      const nodeExit = node.exit().transition().duration(duration)
+        .attr('transform', d => `translate(${source.y},${source.x})`)
+        .remove();
+      nodeExit.select('circle').attr('r', 1e-6);
+      nodeExit.selectAll('text').style('fill-opacity', 1e-6);
+
+      const link = gLink.selectAll('path.link')
+        .data(links, d => d.target.id);
+
+      const linkEnter = link.enter().insert('path', 'g')
+        .attr('class', 'link')
+        .attr('d', d => {
+          const o = { x: source.x0, y: source.y0 };
+          return diagonal(o, o);
+        });
+
+      linkEnter.merge(link)
+        .classed('highlight', d =>
+          highlightedIds.has(d.source.data.id) && highlightedIds.has(d.target.data.id))
+        .transition().duration(duration)
+        .attr('d', d => diagonal(d.source, d.target));
+
+      link.exit().transition().duration(duration)
+        .attr('d', d => {
+          const o = { x: source.x, y: source.y };
+          return diagonal(o, o);
+        })
+        .remove();
+
+      nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+      updateStats();
+    }
+
+    function diagonal(s, d) {
+      return `M ${s.y} ${s.x}
+              C ${(s.y + d.y) / 2} ${s.x},
+                ${(s.y + d.y) / 2} ${d.x},
+                ${d.y} ${d.x}`;
+    }
+
+    function toggle(d) {
+      if (d.children) {
+        d._children = d.children;
+        d.children = null;
+      } else if (d._children) {
+        d.children = d._children;
+        d._children = null;
+      }
+      update(d);
+    }
+
+    function colorFor(d) {
+      if (d.data.id === 'root') return '#3b82f6';
+      const w = d.data.winloss;
+      if (w == null) return '#64748b';
+      if (w > 0) return '#22c55e';
+      if (w < 0) return '#ef4444';
+      return '#64748b';
+    }
+
+    function strokeFor(d) {
+      if (d.data.id === 'root') return '#60a5fa';
+      const w = d.data.winloss;
+      if (w == null) return '#94a3b8';
+      if (w > 0) return '#16a34a';
+      if (w < 0) return '#dc2626';
+      return '#94a3b8';
+    }
+
+    function truncate(str, len) {
+      if (!str) return '';
+      return str.length > len ? str.slice(0, len - 1) + '…' : str;
+    }
+
+    function formatNumber(n) {
+      if (n == null) return '無資料';
+      const abs = Math.abs(n);
+      const formatted = abs.toLocaleString('zh-HK');
+      return n > 0 ? '+' + formatted : n < 0 ? '-' + formatted : '0';
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    const tooltip = document.getElementById('tooltip');
+    function showTooltip(event, d) {
+      if (d.data.id === 'root') {
+        tooltip.innerHTML = '<div class="title">組織架構根</div><div class="row"><span class="label">說明</span><span>虛擬根節點</span></div>';
+      } else {
+        const w = d.data.winloss;
+        const cls = w > 0 ? 'pos' : w < 0 ? 'neg' : '';
+        tooltip.innerHTML =
+          '<div class="title">' + escapeHtml(d.data.name) + '</div>' +
+          '<div class="row"><span class="label">用戶 ID</span><span>' + d.data.id + '</span></div>' +
+          '<div class="row"><span class="label">盈虧</span><span class="' + cls + '">' + formatNumber(w) + '</span></div>' +
+          '<div class="row"><span class="label">下線人數</span><span>' + ((d._children || d.children || []).length) + '</span></div>';
+      }
+      tooltip.classList.add('visible');
+      moveTooltip(event);
+    }
+    function moveTooltip(event) {
+      tooltip.style.left = (event.clientX + 14) + 'px';
+      tooltip.style.top = (event.clientY + 14) + 'px';
+    }
+    function hideTooltip() {
+      tooltip.classList.remove('visible');
+    }
+
+    function doSearch() {
+      const q = document.getElementById('searchInput').value.trim();
+      if (!q) {
+        highlightedIds.clear();
+        searchTargetId = null;
+        document.getElementById('searchResult').classList.remove('visible');
+        update(root);
+        return;
+      }
+
+      // 從完整 hierarchy 找路徑
+      const fullRoot = d3.hierarchy(TREE_DATA, d => d.children);
+      let pathIds = null;
+      fullRoot.each(d => {
+        if (String(d.data.id) === q) {
+          pathIds = d.ancestors().map(a => a.data.id).reverse();
+        }
+      });
+      if (!pathIds) {
+        fullRoot.each(d => {
+          if (!pathIds && String(d.data.id).includes(q)) {
+            pathIds = d.ancestors().map(a => a.data.id).reverse();
+          }
+        });
+      }
+
+      if (pathIds) {
+        expandPath(pathIds);
+        let found = null;
+        root.each(d => {
+          if (d.data.id === pathIds[pathIds.length - 1]) found = d;
+        });
+        if (found) {
+          highlightedIds = new Set(found.ancestors().map(a => a.data.id));
+          searchTargetId = found.data.id;
+          update(root);
+          setTimeout(() => {
+            const scale = 0.9;
+            const tx = width / 2 - found.y * scale;
+            const ty = height / 2 - found.x * scale;
+            svg.transition().duration(600)
+              .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+          }, 350);
+          const res = document.getElementById('searchResult');
+          res.innerHTML =
+            '<strong>找到節點</strong><br>名稱：' + escapeHtml(found.data.name) +
+            '<br>ID：' + found.data.id +
+            '<br>盈虧：' + formatNumber(found.data.winloss);
+          res.classList.add('visible');
+          return;
+        }
+      }
+
+      highlightedIds.clear();
+      searchTargetId = null;
+      update(root);
+      const res = document.getElementById('searchResult');
+      res.innerHTML = '<strong>找不到</strong><br>沒有符合「' + escapeHtml(q) + '」的用戶 ID';
+      res.classList.add('visible');
+    }
+
+    function expandPath(pathIds) {
+      function walk(node, remaining) {
+        if (!remaining.length) return;
+        if (node._children) {
+          node.children = node._children;
+          node._children = null;
+        }
+        if (node.children) {
+          const child = node.children.find(c => c.data.id === remaining[0]);
+          if (child) walk(child, remaining.slice(1));
+        }
+      }
+      walk(root, pathIds.slice(1));
+    }
+
+    init();
+  </script>
+</body>
+</html>
